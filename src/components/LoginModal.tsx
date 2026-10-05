@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, Eye, EyeOff, AlertCircle, 
   LogIn, Check, X, Lock, User
 } from 'lucide-react';
 import type { UserAccount } from './UserManagementModal';
 import { DEFAULT_USERS } from './UserManagementModal';
+import { fetchUsersFromCloud } from '../utils/supabaseClient';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -26,6 +27,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successAnimation, setSuccessAnimation] = useState(false);
+
+  // Sync users dari Supabase Cloud saat login modal dibuka
+  useEffect(() => {
+    if (!isOpen) return;
+    fetchUsersFromCloud().then(cloudUsers => {
+      if (cloudUsers && cloudUsers.length > 0) {
+        localStorage.setItem('industrial_tender_users_v2', JSON.stringify(cloudUsers));
+      }
+    });
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -54,21 +65,37 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     return allUsers && allUsers.length > 0 ? allUsers : DEFAULT_USERS;
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
-    const usersList = getLatestUsersList();
+    let usersList = getLatestUsersList();
     const trimmedInput = username.trim().toLowerCase();
     const inputPassword = password.trim();
 
     // Cari kecocokan berdasarkan username, email, atau nama lengkap
-    const foundUser = usersList.find(u => {
+    let foundUser = usersList.find(u => {
       const uName = (u.username || '').trim().toLowerCase();
       const uEmail = (u.email || '').trim().toLowerCase();
       const uFullName = (u.fullName || '').trim().toLowerCase();
       return uName === trimmedInput || uEmail === trimmedInput || uFullName === trimmedInput;
     });
+
+    // Fallback: Jika belum ada di lokal, coba cari langsung ke Supabase Cloud
+    if (!foundUser) {
+      try {
+        const cloudUsers = await fetchUsersFromCloud();
+        if (cloudUsers && cloudUsers.length > 0) {
+          localStorage.setItem('industrial_tender_users_v2', JSON.stringify(cloudUsers));
+          foundUser = cloudUsers.find(u => {
+            const uName = (u.username || '').trim().toLowerCase();
+            const uEmail = (u.email || '').trim().toLowerCase();
+            const uFullName = (u.fullName || '').trim().toLowerCase();
+            return uName === trimmedInput || uEmail === trimmedInput || uFullName === trimmedInput;
+          });
+        }
+      } catch (err) {}
+    }
 
     if (!foundUser) {
       setErrorMessage(`User "${username}" tidak terdaftar dalam sistem! Pastikan username/email sudah sesuai.`);

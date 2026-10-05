@@ -12,6 +12,11 @@ import type { ImportedBoQRow } from './utils/tenderImporter';
 import { exportTenderToExcel } from './utils/tenderExporter';
 import { syncTreatmentResourcesToMaster } from './utils/masterDataManager';
 import { 
+  fetchTendersFromCloud, 
+  saveTenderToCloud, 
+  deleteTenderFromCloud 
+} from './utils/supabaseClient';
+import { 
   FileUp, HardHat, Trash2, FolderPlus, Briefcase, ChevronDown, ChevronRight, 
   Save, Download, Plus, Wrench, Sliders, CheckCircle, Users, CloudLightning,
   ShieldCheck, Eye, LogOut, Lock, Building, Search, X, Filter, LogIn, FileSpreadsheet
@@ -72,6 +77,7 @@ export interface BoQItem {
 
 export interface TenderProject {
   id: string;
+  tenderNo?: string;
   title: string;
   client: string;
   author?: string;
@@ -93,6 +99,10 @@ export const EMPTY_TENDER: TenderProject = {
 };
 
 export default function App() {
+  // Cloud Database Sync Status
+  const [cloudStatus, setCloudStatus] = useState<'connected' | 'syncing' | 'offline'>('syncing');
+  const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string>('');
+
   // 1. Inisialisasi dari LocalStorage (Auto-Load)
   const [tenders, setTenders] = useState<TenderProject[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -106,6 +116,7 @@ export default function App() {
     return [
       {
         id: 'tender-poma-01',
+        tenderNo: 'TDR-POMA-001',
         title: 'POMA GENERAL SERVICES',
         client: 'POMA Operations',
         author: 'Ahmad Fauzi (Estimator)',
@@ -188,10 +199,68 @@ export default function App() {
     }
   }, [syncNotification]);
 
-  // 2. Auto-Save Setiap Kali State `tenders` Berubah
+  // 2. Inisialisasi Sinkronisasi Cloud Supabase saat Pertama Kali Mount
+  useEffect(() => {
+    let isMounted = true;
+    const initCloudTenders = async () => {
+      setCloudStatus('syncing');
+      try {
+        const cloudData = await fetchTendersFromCloud();
+        if (!isMounted) return;
+
+        if (cloudData && cloudData.length > 0) {
+          setTenders(cloudData);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+          setCloudStatus('connected');
+          setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+        } else if (cloudData && cloudData.length === 0) {
+          // Cloud Supabase kosong, upload tender yang tersimpan di lokal agar tidak hilang
+          const localSaved = localStorage.getItem(STORAGE_KEY);
+          const initialToUpload: TenderProject[] = localSaved ? JSON.parse(localSaved) : tenders;
+          if (initialToUpload && initialToUpload.length > 0) {
+            for (const t of initialToUpload) {
+              await saveTenderToCloud(t);
+            }
+          }
+          setCloudStatus('connected');
+          setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+        } else {
+          setCloudStatus('offline');
+        }
+      } catch (err) {
+        console.warn('Supabase initial fetch offline fallback:', err);
+        if (isMounted) setCloudStatus('offline');
+      }
+    };
+
+    initCloudTenders();
+    return () => { isMounted = false; };
+  }, []);
+
+  // 3. Auto-Save Setiap Kali State `tenders` Berubah (Lokal & Supabase Cloud)
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tenders));
-  }, [tenders]);
+
+    // Debounced Cloud Auto-Sync untuk active tender
+    if (activeTender && activeTender.id) {
+      setCloudStatus('syncing');
+      const timer = setTimeout(async () => {
+        try {
+          const success = await saveTenderToCloud(activeTender);
+          if (success) {
+            setCloudStatus('connected');
+            setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+          } else {
+            setCloudStatus('offline');
+          }
+        } catch {
+          setCloudStatus('offline');
+        }
+      }, 1200);
+
+      return () => clearTimeout(timer);
+    }
+  }, [tenders, activeTenderId]);
 
   // Active Tender: JIKA LOG OUT / BELUM LOGIN / BELUM PILIH TENDER, DEFAULT TENDER KOSONG
   const activeTender: TenderProject = (currentUser && activeTenderId)
@@ -452,15 +521,16 @@ export default function App() {
     }));
   };
 
-  const handleCreateTender = (e: React.FormEvent) => {
+  const handleCreateTender = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTenderTitle.trim()) return;
 
     const newProject: TenderProject = {
       id: `tender-${Date.now()}`,
+      tenderNo: `TDR-${Date.now().toString().slice(-6)}`,
       title: newTenderTitle.trim(),
       client: newTenderClient.trim() || 'Internal Client',
-      author: newTenderAuthor.trim() || 'Ahmad Fauzi (Estimator)',
+      author: newTenderAuthor.trim() || (currentUser ? `${currentUser.fullName} (${currentUser.authorRole})` : 'CRV'),
       createdAt: new Date().toISOString().split('T')[0],
       boqList: []
     };
@@ -471,6 +541,34 @@ export default function App() {
     setNewTenderClient('');
     setNewTenderAuthor('');
     setIsNewTenderModalOpen(false);
+
+    // Langsung simpan tender baru ke Cloud Database
+    setCloudStatus('syncing');
+    const ok = await saveTenderToCloud(newProject);
+    if (ok) {
+      setCloudStatus('connected');
+      setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+    }
+  };
+
+  const handleDeleteTender = async (tenderId: string) => {
+    const target = tenders.find(t => t.id === tenderId);
+    const tenderTitle = target?.title || 'ini';
+    if (!window.confirm(`Yakin ingin menghapus proyek tender "${tenderTitle}"?\nData proyek ini akan dihapus permanen dari Cloud Database Supabase & browser.`)) {
+      return;
+    }
+
+    setTenders(prev => prev.filter(t => t.id !== tenderId));
+    if (activeTenderId === tenderId) {
+      setActiveTenderId('');
+    }
+
+    setCloudStatus('syncing');
+    const ok = await deleteTenderFromCloud(tenderId);
+    if (ok) {
+      setCloudStatus('connected');
+      setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+    }
   };
 
   const handleSelectActiveAuthor = (authorName: string) => {
@@ -539,6 +637,7 @@ export default function App() {
       const newId = `tender-${Date.now()}`;
       const newProject: TenderProject = {
         id: newId,
+        tenderNo: `TDR-${Date.now().toString().slice(-6)}`,
         title: `Tender Hasil Import BoQ (${new Date().toISOString().split('T')[0]})`,
         client: 'Internal Client',
         author: currentUser ? `${currentUser.fullName} (${currentUser.authorRole})` : 'Estimator',
@@ -547,6 +646,7 @@ export default function App() {
       };
       setTenders(prev => [newProject, ...prev]);
       setActiveTenderId(newId);
+      saveTenderToCloud(newProject);
     } else {
       setTenders(prev => prev.map(t => {
         if (t.id === activeTenderId) {
@@ -784,6 +884,28 @@ export default function App() {
                     Tutup
                   </button>
                 )}
+                {currentUser && activeTenderId && canCreateTender && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTender(activeTenderId)}
+                    title="Hapus proyek tender aktif dari Cloud Supabase & browser"
+                    style={{
+                      background: 'none',
+                      border: '1px solid #7f1d1d',
+                      color: '#f87171',
+                      borderRadius: '5px',
+                      padding: '3px 7px',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                  >
+                    <Trash2 size={11} />
+                    Hapus
+                  </button>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
                   <Save size={11} style={{ color: currentUser ? '#10b981' : '#64748b' }} />
                   <span style={{ fontSize: '11px', color: currentUser ? '#10b981' : '#64748b', whiteSpace: 'nowrap' }}>
@@ -799,11 +921,13 @@ export default function App() {
             {/* Cloud Connection Button */}
             <button
               onClick={() => setIsCloudModalOpen(true)}
-              title={canConfigureCloud ? "Pengaturan Koneksi Data Cloud (Tersedia untuk Estimator & Super Admin)" : "Koneksi Cloud (Akses dibatasi untuk Estimator & Super Admin)"}
+              title={canConfigureCloud 
+                ? `Koneksi Supabase Cloud: ${cloudStatus === 'connected' ? `Tersambung (Terakhir sync: ${lastCloudSyncTime || 'Baru saja'})` : cloudStatus === 'syncing' ? 'Sedang sinkronisasi data...' : 'Offline'}`
+                : "Koneksi Cloud (Akses dibatasi untuk Estimator & Super Admin)"}
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '6px', 
+                gap: '7px', 
                 backgroundColor: canConfigureCloud ? '#064e3b' : '#1e293b', 
                 color: canConfigureCloud ? '#6ee7b7' : '#94a3b8', 
                 border: canConfigureCloud ? '1px solid #059669' : '1px solid #334155', 
@@ -815,7 +939,23 @@ export default function App() {
               }}
             >
               <CloudLightning size={15} />
-              Koneksi Cloud
+              <span>
+                {cloudStatus === 'connected' 
+                  ? 'Cloud Synced' 
+                  : cloudStatus === 'syncing' 
+                    ? 'Syncing...' 
+                    : 'Cloud Offline'}
+              </span>
+              <span 
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: cloudStatus === 'connected' ? '#10b981' : cloudStatus === 'syncing' ? '#f59e0b' : '#ef4444',
+                  display: 'inline-block',
+                  boxShadow: cloudStatus === 'connected' ? '0 0 6px #10b981' : undefined
+                }} 
+              />
               {!canConfigureCloud && <Lock size={12} style={{ color: '#f59e0b' }} />}
             </button>
 

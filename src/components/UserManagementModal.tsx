@@ -4,6 +4,11 @@ import {
   Trash2, Edit3, Check, Copy, Search, Database, Code, 
   UserCheck, AlertCircle, X, RefreshCw, LogIn, CloudLightning
 } from 'lucide-react';
+import { 
+  fetchUsersFromCloud, 
+  saveUserToCloud, 
+  deleteUserFromCloud 
+} from '../utils/supabaseClient';
 
 export type UserAuthorRole = 'Super Admin' | 'Estimator' | 'Admin' | 'Reviewer' | 'Viewer';
 
@@ -207,6 +212,20 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
   }, [users]);
 
+  // Fetch data Users terbaru dari Cloud Supabase saat modal dibuka
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    fetchUsersFromCloud().then(cloudUsers => {
+      if (!isMounted) return;
+      if (cloudUsers && cloudUsers.length > 0) {
+        setUsers(cloudUsers);
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(cloudUsers));
+      }
+    });
+    return () => { isMounted = false; };
+  }, [isOpen]);
+
   // Filtered Users List
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
@@ -272,9 +291,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   };
 
   // Hapus User
-  const handleDeleteUser = (userId: string, username: string) => {
-    if (confirm(`Yakin ingin menghapus user "${username}"?`)) {
+  const handleDeleteUser = async (userId: string, username: string) => {
+    if (confirm(`Yakin ingin menghapus user "${username}"? Data akan dihapus dari Cloud Supabase.`)) {
       setUsers(prev => prev.filter(u => u.id !== userId));
+      await deleteUserFromCloud(userId);
     }
   };
 
@@ -296,7 +316,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   };
 
   // Submit Simpan User
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -325,20 +345,18 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
 
     if (editingUserId) {
       // Update User
-      setUsers(prev => prev.map(u => {
-        if (u.id === editingUserId) {
-          return {
-            ...u,
-            username: cleanUsername,
-            fullName: formFullName.trim(),
-            email: formEmail.trim() || `${cleanUsername}@tender.co.id`,
-            password: formPassword.trim(),
-            authorRole: formRole,
-            isActive: formIsActive
-          };
-        }
-        return u;
-      }));
+      const updatedUser: UserAccount = {
+        id: editingUserId,
+        username: cleanUsername,
+        fullName: formFullName.trim(),
+        email: formEmail.trim() || `${cleanUsername}@tender.co.id`,
+        password: formPassword.trim(),
+        authorRole: formRole,
+        isActive: formIsActive,
+        createdAt: users.find(u => u.id === editingUserId)?.createdAt || new Date().toISOString().split('T')[0]
+      };
+      setUsers(prev => prev.map(u => u.id === editingUserId ? updatedUser : u));
+      saveUserToCloud(updatedUser);
     } else {
       // Tambah User Baru
       const newUser: UserAccount = {
@@ -353,6 +371,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
         lastLogin: '-'
       };
       setUsers(prev => [newUser, ...prev]);
+      saveUserToCloud(newUser);
     }
 
     setIsFormOpen(false);

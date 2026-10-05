@@ -24,6 +24,11 @@ import {
   Package,
   Layers
 } from 'lucide-react';
+import {
+  fetchCustomTemplatesFromCloud,
+  saveCustomTemplateToCloud,
+  deleteCustomTemplateFromCloud
+} from '../utils/supabaseClient';
 
 interface Props {
   isOpen: boolean;
@@ -156,7 +161,31 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     return Array.from(map.values());
   }, [savedCustomTemplates, projectBoqTemplates]);
 
-  // Helper to save a template into savedCustomTemplates and localStorage
+  // Fetch custom templates dari Supabase Cloud saat Drawer dibuka
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    fetchCustomTemplatesFromCloud().then(cloudTpls => {
+      if (!isMounted) return;
+      if (cloudTpls && cloudTpls.length > 0) {
+        setSavedCustomTemplates(prev => {
+          const map = new Map<string, BaseTreatmentTemplate>();
+          cloudTpls.forEach(t => map.set(t.id, t));
+          prev.forEach(t => {
+            if (!map.has(t.id)) map.set(t.id, t);
+          });
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(CUSTOM_TEMPLATES_STORAGE_KEY, JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
+      }
+    });
+    return () => { isMounted = false; };
+  }, [isOpen]);
+
+  // Helper to save a template into savedCustomTemplates and localStorage & Supabase Cloud
   const handleSaveAsTemplate = (newTpl: BaseTreatmentTemplate) => {
     setSavedCustomTemplates(prev => {
       const existsIdx = prev.findIndex(t => t.id === newTpl.id || (t.category.toLowerCase() === newTpl.category.toLowerCase() && t.description.toLowerCase() === newTpl.description.toLowerCase()));
@@ -173,6 +202,9 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       return updated;
     });
 
+    // Simpan ke Cloud Supabase
+    saveCustomTemplateToCloud(newTpl);
+
     if (newTpl.category && newTpl.category !== 'Semua') {
       setUserCustomCategories(prev => {
         if (!prev.includes(newTpl.category)) {
@@ -187,7 +219,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     }
   };
 
-  // Helper to delete a custom template from savedCustomTemplates & localStorage
+  // Helper to delete a custom template from savedCustomTemplates & localStorage & Supabase Cloud
   const handleDeleteCustomTemplate = (templateId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Hapus template treatment kustom ini dari katalog?')) {
@@ -205,6 +237,9 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
         } catch (err) {}
         return updated;
       });
+
+      // Hapus dari Cloud Supabase
+      deleteCustomTemplateFromCloud(templateId);
     }
   };
   
