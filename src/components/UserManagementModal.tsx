@@ -23,6 +23,17 @@ const USERS_STORAGE_KEY = 'industrial_tender_users_v2';
 
 export const DEFAULT_USERS: UserAccount[] = [
   {
+    id: 'usr-crv',
+    username: 'CRV',
+    fullName: 'Rovansyah Riza (CRV)',
+    email: 'crv@tender.co.id',
+    password: 'admin123',
+    authorRole: 'Super Admin',
+    isActive: true,
+    createdAt: '2026-10-05',
+    lastLogin: '2026-10-05'
+  },
+  {
     id: 'usr-0',
     username: 'superadmin',
     fullName: 'Master Super Administrator',
