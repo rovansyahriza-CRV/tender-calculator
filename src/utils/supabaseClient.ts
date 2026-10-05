@@ -276,3 +276,201 @@ export async function deleteUserFromCloud(userId: string): Promise<boolean> {
     return false;
   }
 }
+
+// ==========================================
+// 4. MASTER RESOURCES CLOUD SYNC
+// ==========================================
+
+export async function fetchMasterResourcesFromCloud(
+  type?: 'manpower' | 'equipment' | 'material' | 'consumable'
+): Promise<any[] | null> {
+  try {
+    let query = supabase.from('tender_master_resources').select('*');
+    if (type) {
+      query = query.eq('resource_type', type);
+    }
+    const { data, error } = await query.order('category', { ascending: true });
+
+    if (error) {
+      console.warn('Gagal fetch master resources dari cloud:', error.message);
+      return null;
+    }
+
+    if (!data || data.length === 0) return [];
+
+    return data.map((row: any) => {
+      if (row.resource_type === 'manpower') {
+        return {
+          id: row.id,
+          role: row.name,
+          category: row.category,
+          unit: row.unit || 'org',
+          basicSalary: Number(row.details?.basicSalary) || 0,
+          ppeDaily: Number(row.details?.ppeDaily) || 0,
+          jamsostekDaily: Number(row.details?.jamsostekDaily) || 0,
+          mealsDaily: Number(row.details?.mealsDaily) || 0,
+          otherAllowanceDaily: Number(row.details?.otherAllowanceDaily) || 0,
+          totalRate: Number(row.rate) || 0,
+          notes: row.notes || ''
+        };
+      } else if (row.resource_type === 'equipment') {
+        return {
+          id: row.id,
+          name: row.name,
+          category: row.category,
+          unit: row.unit || 'unit',
+          baseRentalRate: Number(row.details?.baseRentalRate) || 0,
+          fuelType: row.details?.fuelType || 'Solar',
+          fuelLitersPerDay: Number(row.details?.fuelLitersPerDay) || 0,
+          fuelPricePerLiter: Number(row.details?.fuelPricePerLiter) || 0,
+          bbmRate: Number(row.details?.bbmRate) || 0,
+          maintenanceRate: Number(row.details?.maintenanceRate) || 0,
+          mobilizationDaily: Number(row.details?.mobilizationDaily) || 0,
+          totalRate: Number(row.rate) || 0,
+          notes: row.notes || ''
+        };
+      } else {
+        // material / consumable
+        return {
+          id: row.id,
+          name: row.name,
+          category: row.category,
+          unit: row.unit || 'Unit',
+          unitRate: Number(row.rate) || 0,
+          notes: row.notes || ''
+        };
+      }
+    });
+  } catch (err) {
+    console.error('Error fetch master resources:', err);
+    return null;
+  }
+}
+
+export async function saveMasterResourceToCloud(
+  type: 'manpower' | 'equipment' | 'material' | 'consumable',
+  item: any
+): Promise<boolean> {
+  try {
+    const payload: any = {
+      id: item.id,
+      resource_type: type,
+      category: item.category || 'General',
+      name: item.role || item.name || '',
+      unit: item.unit || (type === 'manpower' ? 'org' : type === 'equipment' ? 'unit' : 'Unit'),
+      rate: Number(item.totalRate ?? item.unitRate) || 0,
+      notes: item.notes || '',
+      updated_at: new Date().toISOString()
+    };
+
+    if (type === 'manpower') {
+      payload.details = {
+        basicSalary: item.basicSalary || 0,
+        ppeDaily: item.ppeDaily || 0,
+        jamsostekDaily: item.jamsostekDaily || 0,
+        mealsDaily: item.mealsDaily || 0,
+        otherAllowanceDaily: item.otherAllowanceDaily || 0
+      };
+    } else if (type === 'equipment') {
+      payload.details = {
+        baseRentalRate: item.baseRentalRate || 0,
+        fuelType: item.fuelType || 'Solar',
+        fuelLitersPerDay: item.fuelLitersPerDay || 0,
+        fuelPricePerLiter: item.fuelPricePerLiter || 0,
+        bbmRate: item.bbmRate || 0,
+        maintenanceRate: item.maintenanceRate || 0,
+        mobilizationDaily: item.mobilizationDaily || 0
+      };
+    } else {
+      payload.details = {};
+    }
+
+    const { error } = await supabase
+      .from('tender_master_resources')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Gagal simpan master resource ke cloud:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error simpan master resource:', err);
+    return false;
+  }
+}
+
+export async function batchSaveMasterResourcesToCloud(
+  type: 'manpower' | 'equipment' | 'material' | 'consumable',
+  items: any[]
+): Promise<boolean> {
+  try {
+    const payloads = items.map(item => {
+      const payload: any = {
+        id: item.id,
+        resource_type: type,
+        category: item.category || 'General',
+        name: item.role || item.name || '',
+        unit: item.unit || (type === 'manpower' ? 'org' : type === 'equipment' ? 'unit' : 'Unit'),
+        rate: Number(item.totalRate ?? item.unitRate) || 0,
+        notes: item.notes || '',
+        updated_at: new Date().toISOString()
+      };
+      if (type === 'manpower') {
+        payload.details = {
+          basicSalary: item.basicSalary || 0,
+          ppeDaily: item.ppeDaily || 0,
+          jamsostekDaily: item.jamsostekDaily || 0,
+          mealsDaily: item.mealsDaily || 0,
+          otherAllowanceDaily: item.otherAllowanceDaily || 0
+        };
+      } else if (type === 'equipment') {
+        payload.details = {
+          baseRentalRate: item.baseRentalRate || 0,
+          fuelType: item.fuelType || 'Solar',
+          fuelLitersPerDay: item.fuelLitersPerDay || 0,
+          fuelPricePerLiter: item.fuelPricePerLiter || 0,
+          bbmRate: item.bbmRate || 0,
+          maintenanceRate: item.maintenanceRate || 0,
+          mobilizationDaily: item.mobilizationDaily || 0
+        };
+      } else {
+        payload.details = {};
+      }
+      return payload;
+    });
+
+    const { error } = await supabase
+      .from('tender_master_resources')
+      .upsert(payloads, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Gagal batch simpan master resources ke cloud:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error batch simpan master resources:', err);
+    return false;
+  }
+}
+
+export async function deleteMasterResourceFromCloud(id: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('tender_master_resources')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.warn('Gagal hapus master resource dari cloud:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error hapus master resource:', err);
+    return false;
+  }
+}
+
+

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   type MasterManpower, 
   type MasterEquipment,
@@ -22,6 +22,11 @@ import {
   exportMaterialToExcel,
   exportConsumableToExcel
 } from '../utils/masterDataManager';
+import { 
+  fetchMasterResourcesFromCloud, 
+  batchSaveMasterResourcesToCloud, 
+  deleteMasterResourceFromCloud 
+} from '../utils/supabaseClient';
 import { MasterDataImportModal } from './MasterDataImportModal';
 import { MarketPriceLookupWidget } from './MarketPriceLookupWidget';
 import { 
@@ -72,6 +77,40 @@ export const ResourceLookupModal: React.FC<Props> = ({
   const [equipmentData, setEquipmentData] = useState<MasterEquipment[]>(() => loadMasterEquipment());
   const [materialData, setMaterialData] = useState<MasterMaterialItem[]>(() => loadMasterMaterial());
   const [consumableData, setConsumableData] = useState<MasterMaterialItem[]>(() => loadMasterConsumable());
+
+  // Sync master data dari Supabase Cloud saat modal dibuka
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    fetchMasterResourcesFromCloud(type).then(cloudItems => {
+      if (!isMounted) return;
+      if (cloudItems && cloudItems.length > 0) {
+        if (type === 'manpower') {
+          setManpowerData(cloudItems);
+          saveMasterManpower(cloudItems);
+        } else if (type === 'equipment') {
+          setEquipmentData(cloudItems);
+          saveMasterEquipment(cloudItems);
+        } else if (type === 'material') {
+          setMaterialData(cloudItems);
+          saveMasterMaterial(cloudItems);
+        } else if (type === 'consumable') {
+          setConsumableData(cloudItems);
+          saveMasterConsumable(cloudItems);
+        }
+      } else if (cloudItems && cloudItems.length === 0) {
+        // Jika tabel Supabase masih kosong untuk tipe ini, auto-upload dari lokal
+        const currentData = 
+          type === 'manpower' ? manpowerData :
+          type === 'equipment' ? equipmentData :
+          type === 'material' ? materialData : consumableData;
+        if (currentData.length > 0) {
+          batchSaveMasterResourcesToCloud(type, currentData);
+        }
+      }
+    });
+    return () => { isMounted = false; };
+  }, [isOpen, type]);
 
   // Modal Import Excel State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -482,6 +521,7 @@ export const ResourceLookupModal: React.FC<Props> = ({
         setConsumableData(updated);
         saveMasterConsumable(updated);
       }
+      deleteMasterResourceFromCloud(id);
     }
   };
 

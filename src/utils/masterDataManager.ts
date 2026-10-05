@@ -8,6 +8,7 @@ import {
   type MasterEquipment,
   type MasterMaterialItem
 } from '../data/resourceMasterData';
+import { batchSaveMasterResourcesToCloud } from './supabaseClient';
 
 const MANPOWER_STORAGE_KEY = 'industrial_master_manpower_data';
 const EQUIPMENT_STORAGE_KEY = 'industrial_master_equipment_data';
@@ -42,10 +43,12 @@ export function loadMasterManpower(): MasterManpower[] {
 
 export function saveMasterManpower(data: MasterManpower[]): void {
   localStorage.setItem(MANPOWER_STORAGE_KEY, JSON.stringify(data));
+  batchSaveMasterResourcesToCloud('manpower', data);
 }
 
 export function resetMasterManpower(): MasterManpower[] {
   localStorage.removeItem(MANPOWER_STORAGE_KEY);
+  batchSaveMasterResourcesToCloud('manpower', MASTER_MANPOWER_DATABASE);
   return [...MASTER_MANPOWER_DATABASE];
 }
 
@@ -64,10 +67,12 @@ export function loadMasterEquipment(): MasterEquipment[] {
 
 export function saveMasterEquipment(data: MasterEquipment[]): void {
   localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(data));
+  batchSaveMasterResourcesToCloud('equipment', data);
 }
 
 export function resetMasterEquipment(): MasterEquipment[] {
   localStorage.removeItem(EQUIPMENT_STORAGE_KEY);
+  batchSaveMasterResourcesToCloud('equipment', MASTER_EQUIPMENT_DATABASE);
   return [...MASTER_EQUIPMENT_DATABASE];
 }
 
@@ -86,10 +91,12 @@ export function loadMasterMaterial(): MasterMaterialItem[] {
 
 export function saveMasterMaterial(data: MasterMaterialItem[]): void {
   localStorage.setItem(MATERIAL_STORAGE_KEY, JSON.stringify(data));
+  batchSaveMasterResourcesToCloud('material', data);
 }
 
 export function resetMasterMaterial(): MasterMaterialItem[] {
   localStorage.removeItem(MATERIAL_STORAGE_KEY);
+  batchSaveMasterResourcesToCloud('material', MASTER_MATERIAL_DATABASE);
   return [...MASTER_MATERIAL_DATABASE];
 }
 
@@ -108,10 +115,12 @@ export function loadMasterConsumable(): MasterMaterialItem[] {
 
 export function saveMasterConsumable(data: MasterMaterialItem[]): void {
   localStorage.setItem(CONSUMABLE_STORAGE_KEY, JSON.stringify(data));
+  batchSaveMasterResourcesToCloud('consumable', data);
 }
 
 export function resetMasterConsumable(): MasterMaterialItem[] {
   localStorage.removeItem(CONSUMABLE_STORAGE_KEY);
+  batchSaveMasterResourcesToCloud('consumable', MASTER_CONSUMABLE_DATABASE);
   return [...MASTER_CONSUMABLE_DATABASE];
 }
 
