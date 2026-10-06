@@ -222,7 +222,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 <ShieldCheck size={24} />
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Industrial Tender Estimator</h2>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Smart Estimator Engine</h2>
                 <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>Autentikasi Pengguna</p>
               </div>
             </div>
