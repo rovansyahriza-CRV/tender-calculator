@@ -6,6 +6,7 @@ import {
 import type { UserAccount } from './UserManagementModal';
 import { DEFAULT_USERS } from './UserManagementModal';
 import { fetchUsersFromCloud } from '../utils/supabaseClient';
+import fusionFourLogo from '../assets/logo-fusion-four-light.png';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -205,23 +206,38 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </button>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
-              backgroundColor: '#f59e0b',
-              color: '#0f172a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <ShieldCheck size={24} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                backgroundColor: '#f59e0b',
+                color: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <ShieldCheck size={24} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Industrial Tender Estimator</h2>
+                <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>Autentikasi Pengguna</p>
+              </div>
             </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Industrial Tender Estimator</h2>
-              <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>Autentikasi Pengguna</p>
-            </div>
+
+            <img 
+              src={fusionFourLogo} 
+              alt="Fusion Four" 
+              style={{ 
+                height: '32px', 
+                width: 'auto', 
+                display: 'block', 
+                marginRight: (onClose && currentUser) ? '38px' : '0',
+                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+              }} 
+            />
           </div>
 
           <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#cbd5e1', lineHeight: '1.4' }}>

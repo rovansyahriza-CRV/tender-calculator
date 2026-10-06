@@ -21,6 +21,7 @@ import {
   Save, Download, Plus, Wrench, Sliders, CheckCircle, Users, CloudLightning,
   ShieldCheck, Eye, LogOut, Lock, Building, Search, X, Filter, LogIn, FileSpreadsheet
 } from 'lucide-react';
+import fusionFourLogo from './assets/logo-fusion-four-light.png';
 
 export interface ResourceDetailItem {
   id: string;
@@ -1069,6 +1070,33 @@ export default function App() {
               </div>
             )}
 
+            {/* LOGO PERUSAHAAN FUSION FOUR DI SISI KANAN ATAS */}
+            <div 
+              title="Fusion Four"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginLeft: '8px',
+                paddingLeft: '14px',
+                borderLeft: '1px solid #334155',
+                flexShrink: 0
+              }}
+            >
+              <img 
+                src={fusionFourLogo} 
+                alt="Fusion Four" 
+                style={{ 
+                  height: '38px', 
+                  width: 'auto', 
+                  display: 'block',
+                  filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.35))',
+                  transition: 'transform 0.2s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              />
+            </div>
           </div>
         </div>
 
