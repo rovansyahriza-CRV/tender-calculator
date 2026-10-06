@@ -1784,16 +1784,17 @@ export default function App() {
 
             return (
               <div key={boq.id} style={{ border: '1px solid #cbd5e1', borderRadius: '8px', overflow: 'hidden', marginBottom: '14px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                {/* Header BoQ Klien (Kuning Rata Kiri) */}
-                <div style={{ backgroundColor: '#fde047', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none', flexWrap: 'wrap', gap: '8px' }}>
+                {/* Header BoQ Klien (Kuning Rata Kiri - Format 2 Baris Rapih) */}
+                <div style={{ backgroundColor: '#fde047', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '8px', userSelect: 'none' }}>
+                  {/* Baris 1: Deskripsi & Identitas Scope Lengkap (Full Width) */}
                   <div 
                     onClick={() => toggleAccordion(boq.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#0f172a', cursor: 'pointer', flex: 1, minWidth: '240px', fontWeight: 'bold', textAlign: 'left' }}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '13px', color: '#0f172a', cursor: 'pointer', width: '100%', textAlign: 'left' }}
                   >
-                    <span style={{ flexShrink: 0, display: 'flex' }}>
+                    <span style={{ flexShrink: 0, display: 'flex', marginTop: '2px' }}>
                       {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </span>
-                    <span style={{ background: '#0f172a', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', flexShrink: 0 }}>
+                    <span style={{ background: '#0f172a', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', flexShrink: 0, fontWeight: 'bold' }}>
                       {boq.itemNo}
                     </span>
                     {boq.rawLineId && boq.rawLineId !== boq.itemNo && (
@@ -1804,8 +1805,8 @@ export default function App() {
                         ID: {boq.rawLineId}
                       </span>
                     )}
-                    <div style={{ textAlign: 'left', lineHeight: '1.4', flex: 1, minWidth: '200px' }}>
-                      <span style={{ fontWeight: 'bold' }}>{boq.description}</span>
+                    <div style={{ textAlign: 'left', lineHeight: '1.4', flex: 1, minWidth: 0 }}>
+                      <span style={{ fontWeight: 'bold', fontSize: '13px', wordBreak: 'break-word' }}>{boq.description}</span>
                       {(boq.size || boq.pipeClass || (boq.inchDia && boq.inchDia > 0)) && (
                         <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
                           {boq.size && (
@@ -1828,7 +1829,8 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#0f172a', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {/* Baris 2: Parameter Operasional & Kalkulasi Harga */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#0f172a', flexWrap: 'wrap', paddingLeft: '26px' }}>
                     {/* Qty Input */}
                     <div 
                       title={`Volume BoQ: ${boq.qty} ${boq.unit}`}
