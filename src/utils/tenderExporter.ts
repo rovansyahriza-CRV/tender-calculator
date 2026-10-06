@@ -43,6 +43,8 @@ export const exportTenderToExcel = ({
       'Kategori / Bab',
       'Volume (Qty)',
       'Satuan',
+      'Target Output / Hari',
+      'Estimasi Durasi (Hari)',
       'Direct Unit Rate (Rp)',
       'Total Direct Cost (Rp)',
       'Harga Satuan Penawaran (Rp)',
@@ -67,17 +69,24 @@ export const exportTenderToExcel = ({
         '',
         '',
         '',
+        '',
+        '',
         'Bab / Section Header'
       ]);
       return;
     }
 
     const { totalDirect, unitPrice } = calculateBoqTotals(boq);
+    const output = (boq.outputPerDay && boq.outputPerDay > 0) ? boq.outputPerDay : 1;
+    const duration = (boq.qty > 0 && output > 0) ? (boq.qty / output) : 0;
     const bidTotal = totalDirect * markupFactor;
     const bidUnitPrice = boq.qty > 0 ? bidTotal / boq.qty : 0;
 
     const resourceSummary = boq.treatments && boq.treatments.length > 0
-      ? boq.treatments.map(t => `${t.description || t.category} (${t.qty} ${t.unit})`).join('; ')
+      ? boq.treatments.map(t => {
+          const daily = (t.crewDailyRate || 0) + (t.equipmentDailyRate || 0) + (t.materialUnitRate || 0) + (t.consumableUnitRate || 0);
+          return `${t.description || t.category} (Rp ${daily.toLocaleString('id-ID')}/Hari)`;
+        }).join('; ')
       : 'Estimasi Mandiri';
 
     boqSheetData.push([
@@ -87,6 +96,8 @@ export const exportTenderToExcel = ({
       currentCategory,
       boq.qty,
       boq.unit,
+      output,
+      Number(duration.toFixed(2)),
       Math.round(unitPrice),
       Math.round(totalDirect),
       Math.round(bidUnitPrice),
@@ -105,6 +116,8 @@ export const exportTenderToExcel = ({
     '',
     '',
     '',
+    '',
+    '',
     Math.round(grandTotalDirect),
     '',
     Math.round(subtotalBid),
@@ -115,6 +128,8 @@ export const exportTenderToExcel = ({
       'TOTAL+PPN',
       '',
       `GRAND TOTAL PENAWARAN (TERMASUK PPN ${commercialConfig.taxPercent}%)`,
+      '',
+      '',
       '',
       '',
       '',
@@ -155,12 +170,12 @@ export const exportTenderToExcel = ({
     ['Cara Pakai:', 'Masukkan di sel A7 (baris pertama item BoQ), lalu seret (drag) ke paling bawah. Kolom F = Volume/Qty, E = Uraian Pekerjaan, D = No Item.'],
     [],
     ['1. Formula Modern (XLOOKUP) — Rekomendasi:'],
-    ['Rumus Ambil Harga Satuan (Unit Price):', "=XLOOKUP(A7 & \"\", 'Rekap Penawaran BoQ'!$A:$A & \"\", 'Rekap Penawaran BoQ'!$I:$I, 0)"],
-    ['Rumus Ambil Total Harga (Total Bid):', "=XLOOKUP(A7 & \"\", 'Rekap Penawaran BoQ'!$A:$A & \"\", 'Rekap Penawaran BoQ'!$J:$J, 0)"],
+    ['Rumus Ambil Harga Satuan (Unit Price):', "=XLOOKUP(A7 & \"\", 'Rekap Penawaran BoQ'!$A:$A & \"\", 'Rekap Penawaran BoQ'!$K:$K, 0)"],
+    ['Rumus Ambil Total Harga (Total Bid):', "=XLOOKUP(A7 & \"\", 'Rekap Penawaran BoQ'!$A:$A & \"\", 'Rekap Penawaran BoQ'!$L:$L, 0)"],
     [],
     ['2. Formula Klasik (VLOOKUP):'],
-    ['Rumus Ambil Harga Satuan (Kolom ke-9):', "=VLOOKUP(A7, 'Rekap Penawaran BoQ'!$A:$K, 9, FALSE)"],
-    ['Rumus Ambil Total Harga (Kolom ke-10):', "=VLOOKUP(A7, 'Rekap Penawaran BoQ'!$A:$K, 10, FALSE)"],
+    ['Rumus Ambil Harga Satuan (Kolom ke-11):', "=VLOOKUP(A7, 'Rekap Penawaran BoQ'!$A:$M, 11, FALSE)"],
+    ['Rumus Ambil Total Harga (Kolom ke-12):', "=VLOOKUP(A7, 'Rekap Penawaran BoQ'!$A:$M, 12, FALSE)"],
     [],
     ['3. Tips Penting Jika Muncul #N/A:'],
     ['Solusi Tipe Data:', 'Tambahkan & "" pada lookup value: =XLOOKUP(A7 & "", ...) agar angka 1 cocok dengan teks "1".']
@@ -178,11 +193,13 @@ export const exportTenderToExcel = ({
     { wch: 26 }, // D: Kategori
     { wch: 14 }, // E: Qty
     { wch: 10 }, // F: Satuan
-    { wch: 22 }, // G: Direct Unit Rate
-    { wch: 22 }, // H: Total Direct
-    { wch: 25 }, // I: Penawaran Unit Rate
-    { wch: 25 }, // J: Total Penawaran
-    { wch: 35 }  // K: Breakdown
+    { wch: 18 }, // G: Output / Hari
+    { wch: 18 }, // H: Durasi (Hari)
+    { wch: 20 }, // I: Direct Unit Rate
+    { wch: 22 }, // J: Total Direct Cost
+    { wch: 22 }, // K: Harga Satuan Penawaran
+    { wch: 24 }, // L: Total Harga Penawaran
+    { wch: 45 }  // M: Rincian Resource
   ];
 
   const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);

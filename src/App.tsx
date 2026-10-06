@@ -71,6 +71,7 @@ export interface BoQItem {
   description: string;
   qty: number;
   unit: string;
+  outputPerDay?: number; // Target output harian (pembagi daily spread untuk menentukan unit price)
   treatments: TreatmentItem[];
   isCategory?: boolean;
 }
@@ -186,7 +187,7 @@ export default function App() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Modal Breakdown Detail Resources State
-  const [activeTreatmentForModal, setActiveTreatmentForModal] = useState<{ boqId: string; treatment: TreatmentItem; boqQty: number; boqUnit: string } | null>(null);
+  const [activeTreatmentForModal, setActiveTreatmentForModal] = useState<{ boqId: string; treatment: TreatmentItem; boqQty: number; boqUnit: string; boqOutputPerDay?: number } | null>(null);
   const [isTreatmentModalOpen, setIsTreatmentModalOpen] = useState(false);
 
   // Notification Banner for Resource Synchronization
@@ -276,8 +277,8 @@ export default function App() {
     setIsDrawerOpen(true);
   };
 
-  const handleOpenTreatmentBreakdownModal = (boqId: string, treatment: TreatmentItem, boqQty: number, boqUnit: string) => {
-    setActiveTreatmentForModal({ boqId, treatment, boqQty, boqUnit });
+  const handleOpenTreatmentBreakdownModal = (boqId: string, treatment: TreatmentItem, boqQty: number, boqUnit: string, boqOutputPerDay: number = 1) => {
+    setActiveTreatmentForModal({ boqId, treatment, boqQty, boqUnit, boqOutputPerDay });
     setIsTreatmentModalOpen(true);
   };
 
@@ -441,15 +442,17 @@ export default function App() {
     setActiveTreatmentForModal(null);
   };
 
-  const handleAddTreatment = (boqId: string, treatment: TreatmentItem) => {
+  const handleAddTreatment = (boqId: string, treatment: TreatmentItem, suggestedOutput?: number) => {
     setTenders(prev => prev.map(t => {
       if (t.id === activeTenderId) {
         return {
           ...t,
           boqList: t.boqList.map(b => {
             if (b.id === boqId) {
+              const shouldUpdateOutput = (!b.outputPerDay || b.outputPerDay <= 1) && suggestedOutput && suggestedOutput > 1;
               return {
                 ...b,
+                outputPerDay: shouldUpdateOutput ? suggestedOutput : (b.outputPerDay || 1),
                 treatments: [...b.treatments, treatment]
               };
             }
@@ -462,13 +465,55 @@ export default function App() {
 
     setTargetBoqForDrawer(prev => {
       if (prev && prev.id === boqId) {
+        const shouldUpdateOutput = (!prev.outputPerDay || prev.outputPerDay <= 1) && suggestedOutput && suggestedOutput > 1;
         return {
           ...prev,
+          outputPerDay: shouldUpdateOutput ? suggestedOutput : (prev.outputPerDay || 1),
           treatments: [...prev.treatments, treatment]
         };
       }
       return prev;
     });
+  };
+
+  const handleUpdateBoqOutputPerDay = (boqId: string, newOutput: number) => {
+    setTenders(prev => prev.map(t => {
+      if (t.id === activeTenderId) {
+        return {
+          ...t,
+          boqList: t.boqList.map(b => {
+            if (b.id === boqId) {
+              return {
+                ...b,
+                outputPerDay: Math.max(0.01, newOutput)
+              };
+            }
+            return b;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleUpdateBoqQty = (boqId: string, newQty: number) => {
+    setTenders(prev => prev.map(t => {
+      if (t.id === activeTenderId) {
+        return {
+          ...t,
+          boqList: t.boqList.map(b => {
+            if (b.id === boqId) {
+              return {
+                ...b,
+                qty: Math.max(0, newQty)
+              };
+            }
+            return b;
+          })
+        };
+      }
+      return t;
+    }));
   };
 
   const handleDeleteTreatment = (boqId: string, treatmentId: string) => {
@@ -501,25 +546,6 @@ export default function App() {
     });
   };
 
-  const handleUpdateTreatmentQty = (boqId: string, treatmentId: string, newQty: number) => {
-    setTenders(prev => prev.map(t => {
-      if (t.id === activeTenderId) {
-        return {
-          ...t,
-          boqList: t.boqList.map(b => {
-            if (b.id === boqId) {
-              return {
-                ...b,
-                treatments: b.treatments.map(tr => tr.id === treatmentId ? { ...tr, qty: Math.max(0, newQty) } : tr)
-              };
-            }
-            return b;
-          })
-        };
-      }
-      return t;
-    }));
-  };
 
   const handleCreateTender = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -629,6 +655,7 @@ export default function App() {
         description: row.description,
         qty: row.qty,
         unit: row.unit || (row.isCategory ? '' : 'Unit'),
+        outputPerDay: (row.reqPerDay && row.reqPerDay > 0) ? row.reqPerDay : 1,
         treatments: [],
         isCategory: row.isCategory
       }));
@@ -678,19 +705,20 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const calculateCost = (t: TreatmentItem) => {
-    const duration = t.outputPerDay > 0 ? t.qty / t.outputPerDay : 0;
-    const labor = duration * t.crewDailyRate;
-    const equip = duration * t.equipmentDailyRate;
-    const mat = t.qty * (t.materialUnitRate || 0);
-    const csm = t.qty * t.consumableUnitRate;
-    return { duration, totalDirect: labor + equip + mat + csm };
-  };
 
+  // Kalkulasi Total BoQ:
+  // 1. Total Daily Spread = sum(semua treatment daily rate)
+  // 2. Unit Price = Total Daily Spread / BoQ Output per Day
+  // 3. Total Direct = Unit Price * BoQ Qty (ekuivalen Durasi Hari * Total Daily Spread)
   const getBoqTotals = (boq: BoQItem) => {
-    const totalDirect = boq.treatments.reduce((sum, t) => sum + calculateCost(t).totalDirect, 0);
-    const unitPrice = boq.qty > 0 ? totalDirect / boq.qty : 0;
-    return { totalDirect, unitPrice };
+    const totalDailyRate = boq.treatments.reduce((sum, t) => {
+      return sum + ((t.crewDailyRate || 0) + (t.equipmentDailyRate || 0) + (t.materialUnitRate || 0) + (t.consumableUnitRate || 0));
+    }, 0);
+    const output = (boq.outputPerDay && boq.outputPerDay > 0) ? boq.outputPerDay : 1;
+    const unitPrice = output > 0 ? (totalDailyRate / output) : 0;
+    const totalDirect = unitPrice * (boq.qty || 0);
+    const durationDays = (boq.qty > 0 && output > 0) ? (boq.qty / output) : 0;
+    return { totalDirect, unitPrice, totalDailyRate, outputPerDay: output, durationDays };
   };
 
   const currentGrandTotal = activeTender.boqList.reduce((sum, b) => sum + getBoqTotals(b).totalDirect, 0);
@@ -1714,16 +1742,16 @@ export default function App() {
             }
 
             // B. KARTU BOQ ITEM PEKERJAAN (Memiliki Volume & Treatment)
-            const { totalDirect, unitPrice } = getBoqTotals(boq);
+            const { totalDirect, unitPrice, totalDailyRate, outputPerDay: effectiveBoqOutput, durationDays } = getBoqTotals(boq);
             const isOpen = !!openItems[boq.id];
 
             return (
               <div key={boq.id} style={{ border: '1px solid #cbd5e1', borderRadius: '8px', overflow: 'hidden', marginBottom: '14px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 {/* Header BoQ Klien (Kuning Rata Kiri) */}
-                <div style={{ backgroundColor: '#fde047', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
+                <div style={{ backgroundColor: '#fde047', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none', flexWrap: 'wrap', gap: '8px' }}>
                   <div 
                     onClick={() => toggleAccordion(boq.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#0f172a', cursor: 'pointer', flex: 1, fontWeight: 'bold', textAlign: 'left' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#0f172a', cursor: 'pointer', flex: 1, minWidth: '240px', fontWeight: 'bold', textAlign: 'left' }}
                   >
                     <span style={{ flexShrink: 0, display: 'flex' }}>
                       {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -1744,14 +1772,103 @@ export default function App() {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13px', color: '#0f172a', flexShrink: 0, marginLeft: '16px' }}>
-                    <span style={{ fontWeight: '600' }}>{boq.qty.toLocaleString('id-ID')} {boq.unit}</span>
-                    <span style={{ background: '#0f172a', color: '#fde047', padding: '3px 10px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#0f172a', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {/* Qty Input */}
+                    <div 
+                      title={`Volume BoQ: ${boq.qty} ${boq.unit}`}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '4px' }}
+                    >
+                      <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold' }}>Qty:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={boq.qty}
+                        disabled={isReadOnly}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => handleUpdateBoqQty(boq.id, parseFloat(e.target.value) || 0)}
+                        style={{
+                          width: '60px',
+                          padding: '2px 4px',
+                          fontSize: '11px',
+                          textAlign: 'right',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '3px',
+                          fontWeight: 'bold',
+                          color: '#0f172a',
+                          backgroundColor: isReadOnly ? '#f8fafc' : '#ffffff'
+                        }}
+                      />
+                      <span style={{ fontSize: '11px', color: '#334155', fontWeight: 'bold' }}>{boq.unit}</span>
+                    </div>
+
+                    {/* Output per Day Input */}
+                    <div 
+                      title={`Target Output Harian: Nilai pembagi Daily Spread untuk menentukan harga per ${boq.unit}`}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#ffffff', border: '2px solid #f59e0b', padding: '2px 8px', borderRadius: '4px', boxShadow: '0 1px 2px rgba(245, 158, 11, 0.2)' }}
+                    >
+                      <span style={{ fontSize: '11px', color: '#b45309', fontWeight: 'bold' }}>⚡ Output/Hari:</span>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="any"
+                        value={boq.outputPerDay !== undefined && boq.outputPerDay > 0 ? boq.outputPerDay : ''}
+                        placeholder="1"
+                        disabled={isReadOnly}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          handleUpdateBoqOutputPerDay(boq.id, isNaN(val) ? 1 : val);
+                        }}
+                        style={{
+                          width: '55px',
+                          padding: '2px 4px',
+                          fontSize: '11px',
+                          textAlign: 'right',
+                          border: '1px solid #f59e0b',
+                          borderRadius: '3px',
+                          fontWeight: 'bold',
+                          color: '#b45309',
+                          backgroundColor: isReadOnly ? '#f8fafc' : '#ffffff'
+                        }}
+                      />
+                      <span style={{ fontSize: '10px', color: '#b45309', fontWeight: 'bold' }}>{boq.unit}/hr</span>
+                    </div>
+
+                    {/* Durasi Badge */}
+                    <span 
+                      title={`Estimasi durasi pengerjaan: ${boq.qty} ${boq.unit} ÷ ${effectiveBoqOutput} ${boq.unit}/hari = ${durationDays.toFixed(2)} hari`}
+                      style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                    >
+                      ⏱️ {durationDays.toFixed(1)} Hari
+                    </span>
+
+                    {/* Daily Spread Badge */}
+                    {totalDailyRate > 0 && (
+                      <span 
+                        title={`Total Daily Spread: Rp ${Math.round(totalDailyRate).toLocaleString('id-ID')} / Hari`}
+                        style={{ background: '#0f172a', color: '#93c5fd', border: '1px solid #1e3a8a', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', fontFamily: 'monospace' }}
+                      >
+                        Rp {Math.round(totalDailyRate).toLocaleString('id-ID')} / Hari
+                      </span>
+                    )}
+
+                    {/* Unit Price Badge */}
+                    <span 
+                      title={`Harga Satuan: Total Daily Spread Rp ${Math.round(totalDailyRate).toLocaleString('id-ID')} ÷ ${effectiveBoqOutput} ${boq.unit}/hari = Rp ${Math.round(unitPrice).toLocaleString('id-ID')}`}
+                      style={{ background: '#0f172a', color: '#fde047', padding: '3px 10px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px', fontWeight: 'bold' }}
+                    >
                       Rp {Math.round(unitPrice).toLocaleString('id-ID')} / {boq.unit}
                     </span>
-                    <span style={{ fontFamily: 'monospace', fontWeight: '800' }}>
+
+                    {/* Total Price Badge */}
+                    <span 
+                      title={`Total Biaya: ${boq.qty} ${boq.unit} × Rp ${Math.round(unitPrice).toLocaleString('id-ID')}`}
+                      style={{ fontFamily: 'monospace', fontWeight: '800', fontSize: '13px', color: '#0f172a' }}
+                    >
                       Total: Rp {Math.round(totalDirect).toLocaleString('id-ID')}
                     </span>
+
                     {canDeleteBoq && (
                       <button
                         onClick={() => handleDeleteBoqItem(boq.id)}
@@ -1769,7 +1886,7 @@ export default function App() {
                   <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderTop: '1px solid #e2e8f0', fontSize: '12px', textAlign: 'left' }}>
                     {boq.treatments.length === 0 ? (
                       <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', background: '#fff', border: '1px dashed #cbd5e1', borderRadius: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                        <div style={{ display: 'center', justifyContent: 'center', marginBottom: '8px' }}>
                           <div style={{ background: '#f1f5f9', padding: '10px', borderRadius: '50%', color: '#64748b' }}>
                             <Wrench size={24} />
                           </div>
@@ -1778,7 +1895,7 @@ export default function App() {
                           Belum ada Base Treatment yang dipanggil pada item ini.
                         </div>
                         <p style={{ margin: '0 0 12px', fontSize: '11px', color: '#64748b' }}>
-                          Gunakan Base Treatment Catalog untuk memanggil analisa kru mandays, alat kerja, dan konsumabel standar.
+                          Gunakan Base Treatment Catalog untuk memanggil analisa kru mandays, alat kerja, material, dan konsumabel harian.
                         </p>
                         {canEditTreatments ? (
                           <button 
@@ -1838,27 +1955,28 @@ export default function App() {
                           )}
                         </div>
 
-                        {/* Tabel Detail Treatment */}
+                        {/* Tabel Detail Treatment (Model Daily Spread Harian) */}
                         <div style={{ overflowX: 'auto', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                             <thead>
                               <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', color: '#334155' }}>
                                 <th style={{ padding: '8px 10px', textAlign: 'left' }}>Kategori & Deskripsi Treatment</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '80px' }}>Volume</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'center', width: '55px' }}>Satuan</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '70px' }}>Output/Hr</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '70px' }}>Durasi (Hr)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Kru (Rp/Hr)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Alat (Rp/Hr)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Mat (Rp/Sat)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Cons (Rp/Sat)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '110px' }}>Direct Cost</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'center', width: '45px' }}>Aksi</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '105px' }}>Kru (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '105px' }}>Alat (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '105px' }}>Material (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '105px' }}>Consumables (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '120px' }}>Daily Spread (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '115px' }}>Biaya / {boq.unit}</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '125px' }}>Total Biaya (Rp)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'center', width: '55px' }}>Aksi</th>
                               </tr>
                             </thead>
                             <tbody>
                               {boq.treatments.map((tr) => {
-                                const cost = calculateCost(tr);
+                                const dailySpread = (tr.crewDailyRate || 0) + (tr.equipmentDailyRate || 0) + (tr.materialUnitRate || 0) + (tr.consumableUnitRate || 0);
+                                const unitRate = effectiveBoqOutput > 0 ? (dailySpread / effectiveBoqOutput) : 0;
+                                const treatmentTotal = unitRate * (boq.qty || 0);
+
                                 return (
                                   <tr key={tr.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                     <td style={{ padding: '8px 10px' }}>
@@ -1871,7 +1989,7 @@ export default function App() {
                                       <div style={{ marginTop: '4px' }}>
                                         <button
                                           type="button"
-                                          onClick={() => handleOpenTreatmentBreakdownModal(boq.id, tr, boq.qty, boq.unit)}
+                                          onClick={() => handleOpenTreatmentBreakdownModal(boq.id, tr, boq.qty, boq.unit, effectiveBoqOutput)}
                                           title="Buka rincian turunan kru, alat, material, dan consumables"
                                           style={{
                                             display: 'inline-flex',
@@ -1891,34 +2009,9 @@ export default function App() {
                                           onMouseLeave={(e) => { e.currentTarget.style.background = '#fffbeb'; }}
                                         >
                                           <Sliders size={11} />
-                                          <span>Turunan: {(tr.manpowerList?.length || 0)} Kru • {(tr.equipmentList?.length || 0)} Alat • {(tr.materialList?.length || 0)} Mat • {(tr.consumableList?.length || 0)} Cons</span>
+                                          <span>Turunan Resources: {(tr.manpowerList?.length || 0)} Kru • {(tr.equipmentList?.length || 0)} Alat • {(tr.materialList?.length || 0)} Mat • {(tr.consumableList?.length || 0)} Cons</span>
                                         </button>
                                       </div>
-                                    </td>
-                                    <td style={{ padding: '8px 10px', textAlign: 'right' }}>
-                                      <input 
-                                        type="number"
-                                        value={tr.qty}
-                                        disabled={isReadOnly}
-                                        onChange={(e) => handleUpdateTreatmentQty(boq.id, tr.id, parseFloat(e.target.value) || 0)}
-                                        style={{ 
-                                          width: '60px', 
-                                          padding: '3px 4px', 
-                                          fontSize: '11px', 
-                                          textAlign: 'right', 
-                                          border: '1px solid #cbd5e1', 
-                                          borderRadius: '4px', 
-                                          fontFamily: 'monospace', 
-                                          fontWeight: 'bold',
-                                          backgroundColor: isReadOnly ? '#f1f5f9' : '#fff',
-                                          cursor: isReadOnly ? 'not-allowed' : 'text'
-                                        }}
-                                      />
-                                    </td>
-                                    <td style={{ padding: '8px 10px', textAlign: 'center', color: '#64748b' }}>{tr.unit}</td>
-                                    <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>{tr.outputPerDay}</td>
-                                    <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', color: '#0f172a' }}>
-                                      {cost.duration.toFixed(2)}
                                     </td>
                                     <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>
                                       Rp {tr.crewDailyRate.toLocaleString('id-ID')}
@@ -1932,14 +2025,20 @@ export default function App() {
                                     <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace', color: '#7c3aed' }}>
                                       Rp {tr.consumableUnitRate.toLocaleString('id-ID')}
                                     </td>
+                                    <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', color: '#0f172a', background: '#f8fafc' }}>
+                                      Rp {Math.round(dailySpread).toLocaleString('id-ID')}
+                                    </td>
+                                    <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', color: '#2563eb' }}>
+                                      Rp {Math.round(unitRate).toLocaleString('id-ID')}
+                                    </td>
                                     <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', color: '#047857' }}>
-                                      Rp {Math.round(cost.totalDirect).toLocaleString('id-ID')}
+                                      Rp {Math.round(treatmentTotal).toLocaleString('id-ID')}
                                     </td>
                                     <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                         <button
                                           type="button"
-                                          onClick={() => handleOpenTreatmentBreakdownModal(boq.id, tr, boq.qty, boq.unit)}
+                                          onClick={() => handleOpenTreatmentBreakdownModal(boq.id, tr, boq.qty, boq.unit, effectiveBoqOutput)}
                                           title={isReadOnly ? "Lihat rincian turunan resources" : "Edit detail turunan resources (Kru, Alat, Material, Consumables)"}
                                           style={{ background: 'none', border: 'none', color: '#d97706', cursor: 'pointer', padding: '2px' }}
                                         >
@@ -1964,17 +2063,26 @@ export default function App() {
                           </table>
 
                           {/* Sub-Footer Ringkasan Komponen */}
-                          <div style={{ padding: '10px 14px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>
-                              Rumus: <span style={{ fontFamily: 'monospace' }}>(Durasi × Kru) + (Durasi × Alat) + (Vol × Material) + (Vol × Consumables)</span>
+                          <div style={{ padding: '10px 14px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                            <div style={{ fontSize: '11px', color: '#475569' }}>
+                              💡 <strong style={{ color: '#0f172a' }}>Kalkulasi Daily Spread:</strong>{' '}
+                              <span>
+                                Total Daily Spread <strong style={{ color: '#0f172a' }}>Rp {Math.round(totalDailyRate).toLocaleString('id-ID')}/Hari</strong> ÷ Output <strong style={{ color: '#b45309' }}>{effectiveBoqOutput} {boq.unit}/Hari</strong> = <strong style={{ color: '#2563eb' }}>Rp {Math.round(unitPrice).toLocaleString('id-ID')} / {boq.unit}</strong>
+                              </span>
+                              <span style={{ marginLeft: '8px', color: '#64748b' }}>
+                                (Estimasi Durasi: <strong>{durationDays.toFixed(2)} Hari</strong> | Total: {boq.qty.toLocaleString('id-ID')} {boq.unit} × Rp {Math.round(unitPrice).toLocaleString('id-ID')})
+                              </span>
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12px' }}>
                               <span>
-                                Total Direct Cost: <strong style={{ color: '#047857', fontFamily: 'monospace' }}>Rp {Math.round(totalDirect).toLocaleString('id-ID')}</strong>
+                                Total Daily Spread: <strong style={{ color: '#0f172a', fontFamily: 'monospace' }}>Rp {Math.round(totalDailyRate).toLocaleString('id-ID')}/Hari</strong>
                               </span>
                               <span style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: '12px' }}>
-                                Unit Price Terhitung: <strong style={{ color: '#2563eb', fontFamily: 'monospace' }}>Rp {Math.round(unitPrice).toLocaleString('id-ID')} / {boq.unit}</strong>
+                                Unit Price: <strong style={{ color: '#2563eb', fontFamily: 'monospace' }}>Rp {Math.round(unitPrice).toLocaleString('id-ID')} / {boq.unit}</strong>
+                              </span>
+                              <span style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: '12px' }}>
+                                Total Direct Cost: <strong style={{ color: '#047857', fontFamily: 'monospace' }}>Rp {Math.round(totalDirect).toLocaleString('id-ID')}</strong>
                               </span>
                             </div>
                           </div>
@@ -2135,6 +2243,7 @@ export default function App() {
           treatment={activeTreatmentForModal.treatment}
           boqQty={activeTreatmentForModal.boqQty}
           boqUnit={activeTreatmentForModal.boqUnit}
+          boqOutputPerDay={activeTreatmentForModal.boqOutputPerDay || 1}
           allBoqItems={activeTender?.boqList || []}
           onClose={() => {
             setIsTreatmentModalOpen(false);

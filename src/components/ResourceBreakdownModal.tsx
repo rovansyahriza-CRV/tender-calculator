@@ -26,6 +26,7 @@ interface Props {
   treatment: TreatmentItem | null;
   boqQty?: number;
   boqUnit?: string;
+  boqOutputPerDay?: number;
   allBoqItems?: BoQItem[];
   onClose: () => void;
   onSave: (
@@ -39,6 +40,7 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
   treatment,
   boqQty = 1,
   boqUnit = 'Lot',
+  boqOutputPerDay = 1,
   allBoqItems = [],
   onClose,
   onSave
@@ -195,9 +197,6 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
       : [];
   });
 
-  const [outputPerDay, setOutputPerDay] = useState<number>(() => treatment?.outputPerDay || 1);
-  const [workQty, setWorkQty] = useState<number>(() => (treatment?.qty !== undefined && treatment.qty > 0) ? treatment.qty : boqQty);
-
   const totalSharedResourcesCount = useMemo(() => {
     let count = 0;
     const seen = new Set<string>();
@@ -213,18 +212,17 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
 
   if (!isOpen || !treatment) return null;
 
-  // Real-time Sum Calculations
+  // Real-time Sum Calculations (Paket Resources Harian)
   const totalCrewDailyRate = manpowerList.reduce((sum, item) => sum + (item.qty * item.rate), 0);
   const totalEquipmentDailyRate = equipmentList.reduce((sum, item) => sum + (item.qty * item.rate), 0);
   const totalMaterialUnitRate = materialList.reduce((sum, item) => sum + (item.qty * item.rate), 0);
   const totalConsumableUnitRate = consumableList.reduce((sum, item) => sum + (item.qty * item.rate), 0);
 
-  const duration = outputPerDay > 0 ? workQty / outputPerDay : 0;
-  const totalLaborCost = duration * totalCrewDailyRate;
-  const totalEquipmentCost = duration * totalEquipmentDailyRate;
-  const totalMaterialCost = workQty * totalMaterialUnitRate;
-  const totalConsumableCost = workQty * totalConsumableUnitRate;
-  const grandDirectCost = totalLaborCost + totalEquipmentCost + totalMaterialCost + totalConsumableCost;
+  const totalDailySpread = totalCrewDailyRate + totalEquipmentDailyRate + totalMaterialUnitRate + totalConsumableUnitRate;
+  const effectiveOutput = boqOutputPerDay > 0 ? boqOutputPerDay : 1;
+  const unitPriceContribution = effectiveOutput > 0 ? (totalDailySpread / effectiveOutput) : 0;
+  const totalTreatmentDirectCost = unitPriceContribution * (boqQty || 0);
+  const estimatedDuration = (boqQty > 0 && effectiveOutput > 0) ? (boqQty / effectiveOutput) : 0;
 
   // Toggle Handlers
   const toggleExpandManpower = (id: string) => {
@@ -550,8 +548,8 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
   const handleSave = () => {
     const updated: TreatmentItem = {
       ...treatment,
-      qty: workQty,
-      outputPerDay: Math.max(0.01, outputPerDay),
+      qty: 1, // Treatment represents daily package
+      outputPerDay: effectiveOutput,
       crewDailyRate: totalCrewDailyRate,
       equipmentDailyRate: totalEquipmentDailyRate,
       materialUnitRate: totalMaterialUnitRate,
@@ -590,11 +588,11 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
                 {treatment.category}
               </span>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#f8fafc' }}>
-                Rincian Turunan Resources (Analisa Harga Satuan Terpadu)
+                Rincian Turunan Resources (Daily Spread Package)
               </h3>
             </div>
             <div style={{ fontSize: '13px', color: '#cbd5e1' }}>
-              {treatment.description} ({workQty.toLocaleString('id-ID')} {treatment.unit || boqUnit})
+              {treatment.description} • Paket Harian (Item BoQ: {boqQty.toLocaleString('id-ID')} {treatment.unit || boqUnit} | Target Output: {effectiveOutput} {treatment.unit || boqUnit}/hari)
             </div>
           </div>
           <button 
@@ -1618,47 +1616,32 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '20px', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '20px', alignItems: 'center' }}>
             
-            {/* Produktivitas & Volume Inputs */}
-            <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Volume Kerja</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input 
-                    type="number"
-                    value={workQty}
-                    onChange={(e) => setWorkQty(parseFloat(e.target.value) || 0)}
-                    style={{ width: '70px', padding: '4px 6px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: '#fbbf24', fontWeight: 'bold', fontSize: '12px', textAlign: 'right', fontFamily: 'monospace' }}
-                  />
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>{treatment.unit}</span>
+            {/* Live Formula Daily Spread & BoQ Impact */}
+            <div style={{ background: '#1e293b', padding: '10px 14px', borderRadius: '8px', border: '1px solid #334155', fontSize: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#f8fafc' }}>
+                  <Calculator size={15} style={{ color: '#38bdf8' }} />
+                  <span>Total Paket Daily Spread:</span>
+                  <strong style={{ color: '#fbbf24', fontFamily: 'monospace', fontSize: '14px' }}>
+                    Rp {Math.round(totalDailySpread).toLocaleString('id-ID')} / Hari
+                  </strong>
+                </div>
+
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                  (Kru: Rp {Math.round(totalCrewDailyRate).toLocaleString('id-ID')} • Alat: Rp {Math.round(totalEquipmentDailyRate).toLocaleString('id-ID')} • Mat: Rp {Math.round(totalMaterialUnitRate).toLocaleString('id-ID')} • Cons: Rp {Math.round(totalConsumableUnitRate).toLocaleString('id-ID')})
                 </div>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '10px', color: '#94a3b8', marginBottom: '2px' }}>Output / Hari</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input 
-                    type="number"
-                    value={outputPerDay}
-                    onChange={(e) => setOutputPerDay(parseFloat(e.target.value) || 1)}
-                    style={{ width: '70px', padding: '4px 6px', borderRadius: '4px', border: '1px solid #475569', background: '#1e293b', color: '#fbbf24', fontWeight: 'bold', fontSize: '12px', textAlign: 'right', fontFamily: 'monospace' }}
-                  />
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>{treatment.unit}/hr</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Live Formula Direct Cost */}
-            <div style={{ background: '#1e293b', padding: '8px 12px', borderRadius: '6px', border: '1px solid #334155', fontSize: '11px' }}>
-              <div style={{ color: '#94a3b8', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Calculator size={13} style={{ color: '#38bdf8' }} />
-                <span>
-                  Durasi: <strong>{duration.toFixed(2)} hari</strong> (Kru Rp {Math.round(totalLaborCost).toLocaleString('id-ID')} + Alat Rp {Math.round(totalEquipmentCost).toLocaleString('id-ID')} + Mat Rp {Math.round(totalMaterialCost).toLocaleString('id-ID')} + Cons Rp {Math.round(totalConsumableCost).toLocaleString('id-ID')})
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', color: '#cbd5e1', paddingTop: '4px', borderTop: '1px solid #334155', flexWrap: 'wrap' }}>
+                <span>Item BoQ: <strong style={{ color: '#f8fafc' }}>{boqQty.toLocaleString('id-ID')} {boqUnit}</strong> (Output: <strong style={{ color: '#fbbf24' }}>{effectiveOutput} {boqUnit}/hari</strong>, Durasi: <strong>{estimatedDuration.toFixed(2)} hari</strong>)</span>
+                <span style={{ borderLeft: '1px solid #475569', paddingLeft: '14px' }}>
+                  Kontribusi Biaya Satuan: <strong style={{ color: '#38bdf8', fontFamily: 'monospace' }}>Rp {Math.round(unitPriceContribution).toLocaleString('id-ID')} / {boqUnit}</strong>
                 </span>
-              </div>
-              <div style={{ color: '#34d399', fontWeight: 'bold' }}>
-                Total Direct Cost Treatment: <span style={{ fontFamily: 'monospace', fontSize: '13px' }}>Rp {Math.round(grandDirectCost).toLocaleString('id-ID')}</span>
+                <span style={{ borderLeft: '1px solid #475569', paddingLeft: '14px' }}>
+                  Total Biaya Pekerjaan: <strong style={{ color: '#34d399', fontFamily: 'monospace' }}>Rp {Math.round(totalTreatmentDirectCost).toLocaleString('id-ID')}</strong>
+                </span>
               </div>
             </div>
 

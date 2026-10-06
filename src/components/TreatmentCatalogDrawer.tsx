@@ -35,7 +35,7 @@ interface Props {
   boqItem: BoQItem | null;
   allBoqItems?: BoQItem[];
   onClose: () => void;
-  onAddTreatment: (boqId: string, treatment: TreatmentItem) => void;
+  onAddTreatment: (boqId: string, treatment: TreatmentItem, suggestedOutput?: number) => void;
 }
 
 const CUSTOM_TEMPLATES_STORAGE_KEY = 'industrial_custom_treatment_templates';
@@ -387,9 +387,6 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     return Array.from(new Set(combined));
   }, [effectiveCatalog, allAvailableCategories]);
 
-  // Per-card Qty state memory
-  const [qtyOverrides, setQtyOverrides] = useState<Record<string, number>>({});
-
   // Per-card Customized breakdown template memory
   const [customizedTemplates, setCustomizedTemplates] = useState<Record<string, BaseTreatmentTemplate>>({});
   
@@ -415,29 +412,14 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     return customizedTemplates[original.id] || original;
   };
 
-  const getEffectiveQty = (template: BaseTreatmentTemplate) => {
-    if (qtyOverrides[template.id] !== undefined) {
-      return qtyOverrides[template.id];
-    }
-    return boqItem.qty > 0 ? boqItem.qty : 1;
-  };
-
-  const handleQtyChange = (templateId: string, val: number) => {
-    setQtyOverrides(prev => ({
-      ...prev,
-      [templateId]: Math.max(0.01, val)
-    }));
-  };
-
   const handleOpenBreakdownModal = (template: BaseTreatmentTemplate) => {
     const active = getEffectiveTemplate(template);
-    const qty = getEffectiveQty(template);
     const tempItem: TreatmentItem = {
       id: active.id,
       category: active.category,
       description: active.description,
-      qty: qty,
-      unit: active.unit,
+      qty: 1,
+      unit: active.unit || boqItem.unit,
       outputPerDay: active.defaultOutputPerDay,
       crewDailyRate: active.crewDailyRate,
       equipmentDailyRate: active.equipmentDailyRate,
@@ -510,7 +492,6 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
         }));
       }
     }
-    setQtyOverrides(prev => ({ ...prev, [updated.id]: updated.qty }));
     setIsResourceModalOpen(false);
     setEditingTemplateForModal(null);
   };
@@ -741,13 +722,12 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
 
   const handleSelectTemplate = (template: BaseTreatmentTemplate) => {
     const active = getEffectiveTemplate(template);
-    const qty = getEffectiveQty(template);
     const newTreatment: TreatmentItem = {
       id: `treat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       category: active.category,
       description: active.description,
-      qty: qty,
-      unit: active.unit,
+      qty: 1,
+      unit: active.unit || boqItem?.unit || 'Unit',
       outputPerDay: active.defaultOutputPerDay,
       crewDailyRate: active.crewDailyRate,
       equipmentDailyRate: active.equipmentDailyRate,
@@ -759,7 +739,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       consumableList: active.consumableList ? active.consumableList.map(c => ({ ...c })) : []
     };
 
-    onAddTreatment(boqItem.id, newTreatment);
+    onAddTreatment(boqItem.id, newTreatment, active.defaultOutputPerDay);
 
     // Feedback sesaat
     setAddedItemIds(prev => ({ ...prev, [template.id]: true }));
@@ -896,7 +876,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       consumableList: newConsumable
     };
 
-    onAddTreatment(boqItem.id, newTreatment);
+    onAddTreatment(boqItem.id, newTreatment, (customOutput > 0 ? customOutput : 1));
 
     // Save as persistent custom template in catalog
     const newTemplate: BaseTreatmentTemplate = {
@@ -1758,9 +1738,13 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                 const isModified = !!customizedTemplates[template.id];
                 const isCustomTemplate = !BASE_TREATMENT_CATALOG.some(b => b.id === template.id);
                 const catColor = getCategoryColor(active.category);
-                const qty = getEffectiveQty(template);
-                const duration = active.defaultOutputPerDay > 0 ? qty / active.defaultOutputPerDay : 0;
-                const directCost = (duration * active.crewDailyRate) + (duration * active.equipmentDailyRate) + (qty * ((active.materialUnitRate || 0) + active.consumableUnitRate));
+                const dailySpreadRate = (active.crewDailyRate || 0) + (active.equipmentDailyRate || 0) + (active.materialUnitRate || 0) + (active.consumableUnitRate || 0);
+                const targetOutput = (boqItem?.outputPerDay && boqItem.outputPerDay > 0)
+                  ? boqItem.outputPerDay
+                  : (active.defaultOutputPerDay > 0 ? active.defaultOutputPerDay : 1);
+                const estUnitRate = targetOutput > 0 ? (dailySpreadRate / targetOutput) : 0;
+                const estTotal = estUnitRate * (boqItem?.qty || 1);
+                const estDuration = (boqItem?.qty && boqItem.qty > 0 && targetOutput > 0) ? (boqItem.qty / targetOutput) : 0;
                 const isAdded = !!addedItemIds[template.id];
 
                 return (
@@ -1901,33 +1885,19 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                       </div>
                     </div>
 
-                    {/* Baris Bawah: Atur Volume & Tombol Panggil */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-                      {/* Qty Input & Direct Cost Preview */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Qty:</span>
-                          <input 
-                            type="number"
-                            value={qty}
-                            onChange={(e) => handleQtyChange(template.id, parseFloat(e.target.value) || 0)}
-                            style={{
-                              width: '70px',
-                              padding: '4px 6px',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              fontFamily: 'monospace',
-                              fontWeight: 'bold',
-                              textAlign: 'right'
-                            }}
-                          />
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>{active.unit}</span>
+                    {/* Baris Bawah: Total Daily Spread & Tombol Panggil */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', flexWrap: 'wrap', gap: '8px' }}>
+                      {/* Daily Rate & BoQ Impact Preview */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: '#475569', flexWrap: 'wrap' }}>
+                        <div>
+                          Daily Spread: <strong style={{ color: '#0f172a', fontFamily: 'monospace', fontSize: '12px' }}>Rp {Math.round(dailySpreadRate).toLocaleString('id-ID')}/Hari</strong>
                         </div>
-
-                        <div style={{ fontSize: '11px', color: '#475569', borderLeft: '1px solid #cbd5e1', paddingLeft: '8px' }}>
-                          Durasi: <strong style={{ color: '#0f172a' }}>{duration.toFixed(2)} hr</strong> | Estimasi: <strong style={{ color: '#059669', fontFamily: 'monospace' }}>Rp {Math.round(directCost).toLocaleString('id-ID')}</strong>
-                        </div>
+                        {boqItem && (
+                          <div style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: '10px' }}>
+                            Estimasi Unit: <strong style={{ color: '#2563eb', fontFamily: 'monospace' }}>Rp {Math.round(estUnitRate).toLocaleString('id-ID')} / {boqItem.unit}</strong>
+                            <span style={{ color: '#64748b', marginLeft: '6px' }}>(Total: Rp {Math.round(estTotal).toLocaleString('id-ID')}, {estDuration.toFixed(1)} hr)</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Tombol Panggil */}
@@ -2001,6 +1971,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
           treatment={editingTemplateForModal}
           boqQty={boqItem.qty}
           boqUnit={boqItem.unit}
+          boqOutputPerDay={boqItem.outputPerDay || editingTemplateForModal.outputPerDay || 1}
           onClose={() => {
             setIsResourceModalOpen(false);
             setEditingTemplateForModal(null);
