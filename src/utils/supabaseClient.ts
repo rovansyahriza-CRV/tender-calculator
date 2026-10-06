@@ -246,7 +246,7 @@ export async function saveUserToCloud(user: UserAccount): Promise<boolean> {
 
     const { error } = await supabase
       .from('tender_users')
-      .upsert(payload, { onConflict: 'username' });
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
       console.error('Gagal simpan user ke cloud:', error.message);

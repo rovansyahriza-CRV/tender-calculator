@@ -103,9 +103,33 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
 
     const isCrvMatch = (foundUser.username || '').trim().toLowerCase() === 'crv';
-    const isPasswordValid = 
+    let isPasswordValid = 
       (foundUser.password || '').trim() === inputPassword ||
       (isCrvMatch && ['admin123', 'admin', '123456', 'crv123', 'CRV123', 'CRV2026!'].includes(inputPassword));
+
+    // Jika password salah di cache lokal, cek ulang ke Supabase Cloud (siapa tahu baru diganti di device lain)
+    if (!isPasswordValid) {
+      try {
+        const cloudUsers = await fetchUsersFromCloud();
+        if (cloudUsers && cloudUsers.length > 0) {
+          localStorage.setItem('industrial_tender_users_v2', JSON.stringify(cloudUsers));
+          const freshUser = cloudUsers.find(u => {
+            const uName = (u.username || '').trim().toLowerCase();
+            const uEmail = (u.email || '').trim().toLowerCase();
+            const uFullName = (u.fullName || '').trim().toLowerCase();
+            return uName === trimmedInput || uEmail === trimmedInput || uFullName === trimmedInput;
+          });
+          if (freshUser) {
+            foundUser = freshUser;
+            const freshCrvMatch = (freshUser.username || '').trim().toLowerCase() === 'crv';
+            if ((freshUser.password || '').trim() === inputPassword ||
+                (freshCrvMatch && ['admin123', 'admin', '123456', 'crv123', 'CRV123', 'CRV2026!'].includes(inputPassword))) {
+              isPasswordValid = true;
+            }
+          }
+        }
+      } catch (err) {}
+    }
 
     if (!isPasswordValid) {
       setErrorMessage('Password yang Anda masukkan salah!');
