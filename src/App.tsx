@@ -1916,7 +1916,7 @@ export default function App() {
                             }}
                           >
                             <Plus size={15} />
-                            + Panggil Base Treatment
+                            Panggil Base Treatment
                           </button>
                         ) : (
                           <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -1950,7 +1950,7 @@ export default function App() {
                               }}
                             >
                               <Plus size={13} />
-                              + Panggil Treatment Lain
+                              Panggil Treatment Lain
                             </button>
                           )}
                         </div>
