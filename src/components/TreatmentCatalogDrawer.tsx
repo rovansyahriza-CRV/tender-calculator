@@ -7,6 +7,7 @@ import {
 import type { TreatmentItem, BoQItem, ResourceDetailItem } from '../App';
 import { ResourceBreakdownModal } from './ResourceBreakdownModal';
 import { ResourceLookupModal } from './ResourceLookupModal';
+import { MarketPriceLookupWidget } from './MarketPriceLookupWidget';
 import type { MasterManpower, MasterEquipment, MasterMaterialItem } from '../data/resourceMasterData';
 import { 
   X, 
@@ -22,7 +23,8 @@ import {
   Trash2,
   HardHat,
   Package,
-  Layers
+  Layers,
+  TrendingUp
 } from 'lucide-react';
 import {
   fetchCustomTemplatesFromCloud,
@@ -276,6 +278,13 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
   const [customMaterialList, setCustomMaterialList] = useState<ResourceDetailItem[]>([]);
   const [customConsumableList, setCustomConsumableList] = useState<ResourceDetailItem[]>([]);
   const [customActiveTab, setCustomActiveTab] = useState<'manpower' | 'equipment' | 'material' | 'consumable'>('manpower');
+
+  // Benchmark Price Lookup Expanded IDs
+  const [expandedLookupIds, setExpandedLookupIds] = useState<Record<string, boolean>>({});
+
+  const toggleExpandLookup = (id: string) => {
+    setExpandedLookupIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const totalCustomCrewRate = useMemo(() => {
     if (customManpowerList.length > 0) {
@@ -624,27 +633,31 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
         }
       ]);
     } else if (cat === 'material') {
+      const newId = `mat-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
       setCustomMaterialList(prev => [
         ...prev,
         {
-          id: `mat-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+          id: newId,
           name: 'Material Baru',
           qty: 1,
           unit: 'pcs',
           rate: 50000
         }
       ]);
+      setExpandedLookupIds(prev => ({ ...prev, [newId]: true }));
     } else if (cat === 'consumable') {
+      const newId = `cs-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
       setCustomConsumableList(prev => [
         ...prev,
         {
-          id: `cs-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+          id: newId,
           name: 'Consumable Baru',
           qty: 1,
           unit: 'can',
           rate: 25000
         }
       ]);
+      setExpandedLookupIds(prev => ({ ...prev, [newId]: true }));
     }
   };
 
@@ -1429,69 +1442,116 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                           }
 
                           return (
-                            <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#fff' }}>
+                            <div style={{ maxHeight: '340px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px', background: '#fff' }}>
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                                <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0, borderBottom: '1px solid #cbd5e1', color: '#475569' }}>
+                                <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0, borderBottom: '1px solid #cbd5e1', color: '#475569', zIndex: 2 }}>
                                   <tr>
                                     <th style={{ padding: '6px 8px', textAlign: 'left' }}>Nama Item / Posisi</th>
                                     <th style={{ padding: '6px 8px', textAlign: 'right', width: '50px' }}>Qty</th>
                                     <th style={{ padding: '6px 8px', textAlign: 'center', width: '45px' }}>Sat</th>
-                                    <th style={{ padding: '6px 8px', textAlign: 'right', width: '100px' }}>Tarif (Rp)</th>
-                                    <th style={{ padding: '6px 8px', textAlign: 'right', width: '100px' }}>Subtotal</th>
-                                    <th style={{ padding: '6px 8px', textAlign: 'center', width: '35px' }}></th>
+                                    <th style={{ padding: '6px 8px', textAlign: 'right', width: '90px' }}>Tarif (Rp)</th>
+                                    <th style={{ padding: '6px 8px', textAlign: 'right', width: '95px' }}>Subtotal</th>
+                                    <th style={{ padding: '6px 8px', textAlign: 'center', width: (customActiveTab === 'material' || customActiveTab === 'consumable') ? '105px' : '35px' }}>Aksi</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {currentItems.map((item) => (
-                                    <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                      <td style={{ padding: '4px 8px' }}>
-                                        <input 
-                                          type="text"
-                                          value={item.name}
-                                          onChange={(e) => handleUpdateCustomItem(customActiveTab, item.id, 'name', e.target.value)}
-                                          style={{ width: '100%', padding: '3px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', boxSizing: 'border-box' }}
-                                        />
-                                      </td>
-                                      <td style={{ padding: '4px 6px', textAlign: 'right' }}>
-                                        <input 
-                                          type="number"
-                                          min="1"
-                                          value={item.qty}
-                                          onChange={(e) => handleUpdateCustomItem(customActiveTab, item.id, 'qty', parseFloat(e.target.value) || 1)}
-                                          style={{ width: '45px', padding: '3px 4px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', textAlign: 'right', boxSizing: 'border-box' }}
-                                        />
-                                      </td>
-                                      <td style={{ padding: '4px 6px', textAlign: 'center' }}>
-                                        <input 
-                                          type="text"
-                                          value={item.unit}
-                                          onChange={(e) => handleUpdateCustomItem(customActiveTab, item.id, 'unit', e.target.value)}
-                                          style={{ width: '40px', padding: '3px 2px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', textAlign: 'center', boxSizing: 'border-box' }}
-                                        />
-                                      </td>
-                                      <td style={{ padding: '4px 6px', textAlign: 'right' }}>
-                                        <input 
-                                          type="number"
-                                          value={item.rate}
-                                          onChange={(e) => handleUpdateCustomItem(customActiveTab, item.id, 'rate', parseFloat(e.target.value) || 0)}
-                                          style={{ width: '90px', padding: '3px 4px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', textAlign: 'right', boxSizing: 'border-box', fontFamily: 'monospace' }}
-                                        />
-                                      </td>
-                                      <td style={{ padding: '4px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', color: '#0f172a' }}>
-                                        Rp {(item.qty * item.rate).toLocaleString('id-ID')}
-                                      </td>
-                                      <td style={{ padding: '4px 6px', textAlign: 'center' }}>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteCustomItem(customActiveTab, item.id)}
-                                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
-                                          title="Hapus baris ini"
-                                        >
-                                          <Trash2 size={13} />
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ))}
+                                  {currentItems.map((item) => {
+                                    const isExpanded = !!expandedLookupIds[item.id];
+                                    const canLookupPrice = customActiveTab === 'material' || customActiveTab === 'consumable';
+
+                                    return (
+                                      <React.Fragment key={item.id}>
+                                        <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid #f1f5f9', background: isExpanded ? '#f8fafc' : '#ffffff' }}>
+                                          <td style={{ padding: '4px 8px' }}>
+                                            <input 
+                                              type="text"
+                                              value={item.name}
+                                              onChange={(e) => handleUpdateCustomItem(customActiveTab, item.id, 'name', e.target.value)}
+                                              style={{ width: '100%', padding: '3px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', boxSizing: 'border-box' }}
+                                            />
+                                          </td>
+                                          <td style={{ padding: '4px 6px', textAlign: 'right' }}>
+                                            <input 
+                                              type="number"
+                                              min="1"
+                                              value={item.qty}
+                                              onChange={(e) => handleUpdateCustomItem(customActiveTab, item.id, 'qty', parseFloat(e.target.value) || 1)}
+                                              style={{ width: '45px', padding: '3px 4px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', textAlign: 'right', boxSizing: 'border-box' }}
+                                            />
+                                          </td>
+                                          <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                                            <input 
+                                              type="text"
+                                              value={item.unit}
+                                              onChange={(e) => handleUpdateCustomItem(customActiveTab, item.id, 'unit', e.target.value)}
+                                              style={{ width: '40px', padding: '3px 2px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', textAlign: 'center', boxSizing: 'border-box' }}
+                                            />
+                                          </td>
+                                          <td style={{ padding: '4px 6px', textAlign: 'right' }}>
+                                            <input 
+                                              type="number"
+                                              value={item.rate}
+                                              onChange={(e) => handleUpdateCustomItem(customActiveTab, item.id, 'rate', parseFloat(e.target.value) || 0)}
+                                              style={{ width: '90px', padding: '3px 4px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px', textAlign: 'right', boxSizing: 'border-box', fontFamily: 'monospace' }}
+                                            />
+                                          </td>
+                                          <td style={{ padding: '4px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', color: '#0f172a' }}>
+                                            Rp {(item.qty * item.rate).toLocaleString('id-ID')}
+                                          </td>
+                                          <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                              {canLookupPrice && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => toggleExpandLookup(item.id)}
+                                                  style={{ 
+                                                    background: isExpanded ? '#eff6ff' : '#f8fafc', 
+                                                    border: isExpanded ? '1px solid #3b82f6' : '1px solid #cbd5e1', 
+                                                    color: isExpanded ? '#1d4ed8' : '#475569', 
+                                                    cursor: 'pointer', 
+                                                    padding: '2px 5px',
+                                                    borderRadius: '4px',
+                                                    display: 'flex', 
+                                                    alignItems: 'center',
+                                                    gap: '3px',
+                                                    fontSize: '10px',
+                                                    fontWeight: 'bold'
+                                                  }}
+                                                  title="Lihat Referensi Google & Benchmark Harga Pasar (Bawah, Rata-rata, Atas)"
+                                                >
+                                                  <TrendingUp size={12} color={isExpanded ? '#2563eb' : '#64748b'} />
+                                                  <span>{isExpanded ? 'Tutup' : 'Cek Harga'}</span>
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={() => handleDeleteCustomItem(customActiveTab, item.id)}
+                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                                                title="Hapus baris ini"
+                                              >
+                                                <Trash2 size={13} />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                        {canLookupPrice && isExpanded && (
+                                          <tr style={{ background: customActiveTab === 'material' ? '#f0fdf4' : '#faf5ff', borderBottom: '1px solid #e2e8f0' }}>
+                                            <td colSpan={6} style={{ padding: '6px 10px 10px' }}>
+                                              <MarketPriceLookupWidget
+                                                query={item.name}
+                                                currentPrice={item.rate}
+                                                unit={item.unit}
+                                                onSelectPrice={(newP) => {
+                                                  handleUpdateCustomItem(customActiveTab, item.id, 'rate', newP);
+                                                }}
+                                                compact={true}
+                                              />
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </React.Fragment>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </div>
@@ -1571,48 +1631,72 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                 )}
 
                 {sowType === 'material' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '10px', marginBottom: '12px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Volume Kuantitas</label>
-                      <input 
-                        type="number" 
-                        value={customQty}
-                        onChange={(e) => setCustomQty(parseFloat(e.target.value) || 1)}
-                        style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box' }}
-                      />
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '10px', marginBottom: '8px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Volume Kuantitas</label>
+                        <input 
+                          type="number" 
+                          value={customQty}
+                          onChange={(e) => setCustomQty(parseFloat(e.target.value) || 1)}
+                          style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Harga Satuan Material (Rp)</label>
+                        <input 
+                          type="number" 
+                          value={customMaterialRate}
+                          onChange={(e) => setCustomMaterialRate(parseFloat(e.target.value) || 0)}
+                          style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box' }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Harga Satuan Material (Rp)</label>
-                      <input 
-                        type="number" 
-                        value={customMaterialRate}
-                        onChange={(e) => setCustomMaterialRate(parseFloat(e.target.value) || 0)}
-                        style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box' }}
+                    {/* Live Benchmark Widget untuk Single Material */}
+                    {customDesc.trim().length > 1 && (
+                      <MarketPriceLookupWidget
+                        query={customDesc}
+                        currentPrice={customMaterialRate}
+                        unit={customUnit}
+                        onSelectPrice={(newP) => setCustomMaterialRate(newP)}
+                        compact={true}
                       />
-                    </div>
+                    )}
                   </div>
                 )}
 
                 {sowType === 'consumable' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '10px', marginBottom: '12px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Volume Kuantitas</label>
-                      <input 
-                        type="number" 
-                        value={customQty}
-                        onChange={(e) => setCustomQty(parseFloat(e.target.value) || 1)}
-                        style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box' }}
-                      />
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '10px', marginBottom: '8px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Volume Kuantitas</label>
+                        <input 
+                          type="number" 
+                          value={customQty}
+                          onChange={(e) => setCustomQty(parseFloat(e.target.value) || 1)}
+                          style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Harga Satuan Consumable (Rp)</label>
+                        <input 
+                          type="number" 
+                          value={customConsumableRate}
+                          onChange={(e) => setCustomConsumableRate(parseFloat(e.target.value) || 0)}
+                          style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box' }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 'bold' }}>Harga Satuan Consumable (Rp)</label>
-                      <input 
-                        type="number" 
-                        value={customConsumableRate}
-                        onChange={(e) => setCustomConsumableRate(parseFloat(e.target.value) || 0)}
-                        style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box' }}
+                    {/* Live Benchmark Widget untuk Single Consumable */}
+                    {customDesc.trim().length > 1 && (
+                      <MarketPriceLookupWidget
+                        query={customDesc}
+                        currentPrice={customConsumableRate}
+                        unit={customUnit}
+                        onSelectPrice={(newP) => setCustomConsumableRate(newP)}
+                        compact={true}
                       />
-                    </div>
+                    )}
                   </div>
                 )}
 
