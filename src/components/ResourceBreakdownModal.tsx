@@ -1336,8 +1336,11 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
                                 query={item.name}
                                 currentPrice={item.rate}
                                 unit={item.unit}
-                                onSelectPrice={(newP) => {
+                                onSelectPrice={(newP, newU) => {
                                   handleUpdateMaterial(item.id, 'rate', newP);
+                                  if (newU) {
+                                    handleUpdateMaterial(item.id, 'unit', newU);
+                                  }
                                 }}
                               />
                             </td>
@@ -1530,8 +1533,11 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
                                 query={item.name}
                                 currentPrice={item.rate}
                                 unit={item.unit}
-                                onSelectPrice={(newP) => {
+                                onSelectPrice={(newP, newU) => {
                                   handleUpdateConsumable(item.id, 'rate', newP);
+                                  if (newU) {
+                                    handleUpdateConsumable(item.id, 'unit', newU);
+                                  }
                                 }}
                               />
                             </td>

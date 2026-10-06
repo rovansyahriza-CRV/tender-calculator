@@ -1541,8 +1541,11 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                                                 query={item.name}
                                                 currentPrice={item.rate}
                                                 unit={item.unit}
-                                                onSelectPrice={(newP) => {
+                                                onSelectPrice={(newP, newU) => {
                                                   handleUpdateCustomItem(customActiveTab, item.id, 'rate', newP);
+                                                  if (newU) {
+                                                    handleUpdateCustomItem(customActiveTab, item.id, 'unit', newU);
+                                                  }
                                                 }}
                                                 compact={true}
                                               />
@@ -1658,7 +1661,10 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                         query={customDesc}
                         currentPrice={customMaterialRate}
                         unit={customUnit}
-                        onSelectPrice={(newP) => setCustomMaterialRate(newP)}
+                        onSelectPrice={(newP, newU) => {
+                          setCustomMaterialRate(newP);
+                          if (newU) setCustomUnit(newU);
+                        }}
                         compact={true}
                       />
                     )}
@@ -1693,7 +1699,10 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                         query={customDesc}
                         currentPrice={customConsumableRate}
                         unit={customUnit}
-                        onSelectPrice={(newP) => setCustomConsumableRate(newP)}
+                        onSelectPrice={(newP, newU) => {
+                          setCustomConsumableRate(newP);
+                          if (newU) setCustomUnit(newU);
+                        }}
                         compact={true}
                       />
                     )}

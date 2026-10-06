@@ -310,6 +310,190 @@ export const MARKET_PRICE_BENCHMARK_DATABASE: PriceBenchmarkItem[] = [
     priceAvg: 15000,
     specs: 'Bahan katun daya serap tinggi tanpa kancing/ritsleting',
     sourceNote: 'Supplier Perlengkapan Workshop'
+  },
+
+  // ==========================================
+  // 3. CUTTING, WELDING TOOLS & EQUIPMENT CONSUMABLES
+  // ==========================================
+  {
+    id: 'bm-eq-torch-victor',
+    name: 'Blender Potong / Cutting Torch Victor Heavy Duty (ST900FC / CA2460)',
+    category: 'Cutting & Welding Tools',
+    type: 'equipment',
+    unit: 'set',
+    priceLow: 1200000,
+    priceHigh: 2850000,
+    priceAvg: 1850000,
+    specs: 'Heavy duty torch 90 derajat, kapasitas potong hingga 150mm baja, original Victor / ESAB',
+    sourceNote: 'Distributor Resmi Victor ESAB / Glodok Teknik / Monotaro'
+  },
+  {
+    id: 'bm-eq-outfit-victor',
+    name: 'Cutting Outfit Kit Lengkap Victor (Performer / Medalist Set)',
+    category: 'Cutting & Welding Tools',
+    type: 'equipment',
+    unit: 'set',
+    priceLow: 4800000,
+    priceHigh: 14500000,
+    priceAvg: 7200000,
+    specs: 'Full set torch handle, cutting attachment, regulator O2 & C2H2, selang kembar & tip kit',
+    sourceNote: 'Distributor Resmi Peralatan Las & Potong Industri'
+  },
+  {
+    id: 'bm-cs-tip-victor-1101',
+    name: 'Mata Blender Potong / Cutting Tip Victor Type 1-101 (Ukuran 0, 1, 2, 3)',
+    category: 'Cutting & Welding Consumable',
+    type: 'consumable',
+    unit: 'pcs',
+    priceLow: 65000,
+    priceHigh: 145000,
+    priceAvg: 95000,
+    specs: 'Cutting nozzle copper/brass untuk gas oksigen-acetylene/LPG',
+    sourceNote: 'Pusat Consumable Fabrikasi Glodok'
+  },
+  {
+    id: 'bm-eq-torch-harris',
+    name: 'Blender Potong / Cutting Torch Harris Heavy Duty (Type 62-5F / 880)',
+    category: 'Cutting & Welding Tools',
+    type: 'equipment',
+    unit: 'set',
+    priceLow: 1350000,
+    priceHigh: 2950000,
+    priceAvg: 1950000,
+    specs: 'Original Harris Calorific USA / Europe standard heavy duty cutting torch',
+    sourceNote: 'Distributor Resmi Harris Welding Indonesia'
+  },
+  {
+    id: 'bm-eq-torch-gloor',
+    name: 'Blender Potong / Cutting Torch Gloor Swiss Type',
+    category: 'Cutting & Welding Tools',
+    type: 'equipment',
+    unit: 'set',
+    priceLow: 450000,
+    priceHigh: 950000,
+    priceAvg: 650000,
+    specs: 'Gloor model cutting torch standard workshop & shipyard',
+    sourceNote: 'Supplier Alat Teknik Glodok & Surabaya'
+  },
+  {
+    id: 'bm-eq-torch-yamato',
+    name: 'Blender Potong / Cutting Torch Yamato M-Type Medium Duty',
+    category: 'Cutting & Welding Tools',
+    type: 'equipment',
+    unit: 'set',
+    priceLow: 280000,
+    priceHigh: 650000,
+    priceAvg: 420000,
+    specs: 'Yamato medium duty gas cutting torch c/w 3 cutting nozzles',
+    sourceNote: 'Toko Perlengkapan Bengkel & Fabrikasi'
+  },
+  {
+    id: 'bm-eq-regulator-o2',
+    name: 'Regulator Oksigen (O2) High Pressure (Victor / Harris / Yamato)',
+    category: 'Cutting & Welding Tools',
+    type: 'equipment',
+    unit: 'unit',
+    priceLow: 350000,
+    priceHigh: 1250000,
+    priceAvg: 650000,
+    specs: 'Dual gauge pressure regulator, inlet 250 bar, body forged brass',
+    sourceNote: 'Distributor Regulator Gas Industri'
+  },
+  {
+    id: 'bm-eq-regulator-c2h2',
+    name: 'Regulator Acetylene / LPG (Victor / Harris / Yamato)',
+    category: 'Cutting & Welding Tools',
+    type: 'equipment',
+    unit: 'unit',
+    priceLow: 380000,
+    priceHigh: 1300000,
+    priceAvg: 680000,
+    specs: 'Regulator gas bahan bakar oxy-fuel cutting dual gauge',
+    sourceNote: 'Distributor Regulator Gas Industri'
+  },
+  {
+    id: 'bm-cs-selang-kembar',
+    name: 'Selang Las Kembar / Twin Welding Hose Oxy-Acetylene (Roll 50 Meter)',
+    category: 'Cutting & Welding Consumable',
+    type: 'consumable',
+    unit: 'roll',
+    priceLow: 650000,
+    priceHigh: 1450000,
+    priceAvg: 950000,
+    specs: 'Twin hose ID 6.3mm (1/4") Red/Blue, WP 20 bar, ISO 3821 / EN 559',
+    sourceNote: 'Supplier Selang Industri Batam & Jakarta'
+  },
+  {
+    id: 'bm-cs-flashback-arrestor',
+    name: 'Flashback Arrestor Set (Torch & Regulator O2 + Fuel Gas)',
+    category: 'Safety & Welding Accessories',
+    type: 'consumable',
+    unit: 'set',
+    priceLow: 120000,
+    priceHigh: 320000,
+    priceAvg: 195000,
+    specs: 'Katup pengaman anti-balik api untuk torch & regulator (standar HSE migas)',
+    sourceNote: 'Pusat Alat Safety & Fabrikasi'
+  },
+  {
+    id: 'bm-cs-gas-o2',
+    name: 'Gas Oksigen Refill Tabung 6 m3 (O2 Industri)',
+    category: 'Industrial Gas',
+    type: 'consumable',
+    unit: 'tabung',
+    priceLow: 65000,
+    priceHigh: 140000,
+    priceAvg: 95000,
+    specs: 'Isi ulang gas oksigen murni 99.5% botol 6 m3 (tekanan 150 bar)',
+    sourceNote: 'Samator / Aneka Gas Industri / Agen Gas Lokal'
+  },
+  {
+    id: 'bm-cs-gas-c2h2',
+    name: 'Gas Acetylene Refill Botol 40 Liter (C2H2 Industri)',
+    category: 'Industrial Gas',
+    type: 'consumable',
+    unit: 'tabung',
+    priceLow: 280000,
+    priceHigh: 490000,
+    priceAvg: 380000,
+    specs: 'Isi ulang gas asetilin industri untuk oxy-fuel cutting & welding',
+    sourceNote: 'Samator / Distributor Gas Industri'
+  },
+  {
+    id: 'bm-cs-gas-lpg-50kg',
+    name: 'Gas LPG Industri 50 kg (Pertamina Elpiji 50kg)',
+    category: 'Industrial Gas',
+    type: 'consumable',
+    unit: 'tabung',
+    priceLow: 850000,
+    priceHigh: 1150000,
+    priceAvg: 980000,
+    specs: 'Refill Pertamina LPG 50 kg tabung silinder industri',
+    sourceNote: 'Agen Resmi Elpiji Non-Subsidi Pertamina'
+  },
+  {
+    id: 'bm-cs-kacamata-potong',
+    name: 'Kacamata Las Potong / Cutting Goggles (Shade 5 DIN)',
+    category: 'Safety Consumable',
+    type: 'consumable',
+    unit: 'pcs',
+    priceLow: 35000,
+    priceHigh: 95000,
+    priceAvg: 55000,
+    specs: 'Flip-up Oxy-fuel welding & cutting goggles anti-kabut',
+    sourceNote: 'Distributor Safety APD'
+  },
+  {
+    id: 'bm-cs-spark-lighter',
+    name: 'Korek Api Las / Spark Lighter Pistol & Batu Korek',
+    category: 'Cutting & Welding Consumable',
+    type: 'consumable',
+    unit: 'pcs',
+    priceLow: 25000,
+    priceHigh: 75000,
+    priceAvg: 45000,
+    specs: 'Single flint spark lighter untuk menyalakan blender potong',
+    sourceNote: 'Toko Alat Las Teknik'
   }
 ];
 
@@ -321,6 +505,8 @@ export interface BenchmarkSearchResult {
   priceAvg: number;
   unit: string;
   sourceNote: string;
+  isVerified: boolean;
+  isPlaceholderPrice: boolean;
   googleSearchUrl: string;
   tokopediaSearchUrl: string;
   indotradingSearchUrl: string;
@@ -328,8 +514,8 @@ export interface BenchmarkSearchResult {
 
 /**
  * Mencari referensi harga pasar berdasarkan nama produk / item.
- * Jika cocok dengan database benchmark, akan mengembalikan rentang harga presisi.
- * Jika belum ada di database, akan menghitung estimasi cerdas & membuat direct link pencarian Google!
+ * Jika cocok dengan database benchmark, akan mengembalikan rentang harga presisi terverifikasi.
+ * Jika belum ada di database, akan menghitung estimasi toleransi & direct link pencarian Google / Tokopedia!
  */
 export function searchMarketPriceBenchmark(
   query: string, 
@@ -338,25 +524,69 @@ export function searchMarketPriceBenchmark(
 ): BenchmarkSearchResult {
   const cleanQ = query.trim().toLowerCase();
   
-  // 1. Cari exact / fuzzy match di database benchmark
+  // Normalisasi kata kunci pencarian & sinonim teknis industri
+  const words = cleanQ
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 1);
+
+  // Daftar sinonim ekuivalen
+  const synonymMap: Record<string, string[]> = {
+    torch: ['blender', 'stang', 'cutting'],
+    blender: ['torch', 'cutting', 'potong'],
+    cutting: ['potong', 'torch', 'blender'],
+    potong: ['cutting', 'blender', 'torch'],
+    tip: ['nozzle', 'mata'],
+    mata: ['tip', 'nozzle'],
+    las: ['welding', 'kawat', 'elektroda'],
+    welding: ['las', 'kawat', 'torch'],
+    kawat: ['welding', 'electrode', 'rod'],
+    regulator: ['regulator', 'gauge'],
+    selang: ['hose', 'twin'],
+    hose: ['selang']
+  };
+
+  // 1. Cari match dengan sistem scoring bobot
   let bestMatch: PriceBenchmarkItem | null = null;
   let highestScore = 0;
 
   for (const item of MARKET_PRICE_BENCHMARK_DATABASE) {
     const itemLow = item.name.toLowerCase();
     const itemCat = item.category.toLowerCase();
+    const itemSpecs = (item.specs || '').toLowerCase();
+    
+    let score = 0;
 
-    // Hitung kemiripan sederhana
-    const words = cleanQ.split(/\s+/).filter(w => w.length > 1);
-    let matchCount = 0;
     for (const w of words) {
-      if (itemLow.includes(w) || itemCat.includes(w)) {
-        matchCount++;
+      if (itemLow.includes(w)) {
+        score += 10;
+        // Bobot lebih tinggi jika cocok kata kunci spesifik merk/tipe
+        if (['victor', 'harris', 'gloor', 'yamato', 'kobelco', 'resibon', 'jotun', 'kitz'].includes(w)) {
+          score += 20;
+        }
+      } else if (itemSpecs.includes(w)) {
+        score += 5;
+      } else if (itemCat.includes(w)) {
+        score += 3;
+      } else if (synonymMap[w]) {
+        // Cek kecocokan sinonim
+        for (const syn of synonymMap[w]) {
+          if (itemLow.includes(syn) || itemSpecs.includes(syn)) {
+            score += 4;
+            break;
+          }
+        }
       }
     }
 
-    if (matchCount > highestScore) {
-      highestScore = matchCount;
+    // Bonus jika sebagian besar kata query ada di nama item
+    const matchCount = words.filter(w => itemLow.includes(w)).length;
+    if (words.length > 1 && matchCount === words.length) {
+      score += 30; // Match sempurna semua kata query
+    }
+
+    if (score > highestScore) {
+      highestScore = score;
       bestMatch = item;
     }
   }
@@ -366,7 +596,8 @@ export function searchMarketPriceBenchmark(
   const tokpedUrl = `https://www.tokopedia.com/search?st=product&q=${encodeURIComponent(query)}`;
   const indotradingUrl = `https://www.indotrading.com/search?q=${encodeURIComponent(query)}`;
 
-  if (bestMatch && highestScore > 0) {
+  // Ambang batas kecocokan terverifikasi
+  if (bestMatch && highestScore >= 10) {
     return {
       matchedItem: bestMatch,
       query,
@@ -375,17 +606,44 @@ export function searchMarketPriceBenchmark(
       priceAvg: bestMatch.priceAvg,
       unit: bestMatch.unit,
       sourceNote: bestMatch.sourceNote,
+      isVerified: true,
+      isPlaceholderPrice: false,
       googleSearchUrl: googleUrl,
       tokopediaSearchUrl: tokpedUrl,
       indotradingSearchUrl: indotradingUrl
     };
   }
 
-  // 2. Jika tidak ada kecocokan eksplisit, gunakan baseline input pengguna dengan toleransi rentang pasar (-15% s/d +25%)
-  const basePrice = currentInputPrice > 0 ? currentInputPrice : 50000;
-  const pLow = Math.round(basePrice * 0.85);
-  const pHigh = Math.round(basePrice * 1.25);
-  const pAvg = Math.round(basePrice);
+  // 2. Jika tidak ada kecocokan eksplisit di database
+  // Cek apakah currentInputPrice adalah placeholder bawaan default (0, 25.000 consumable, 50.000 material, 350.000, 500.000)
+  const isDefaultPlaceholder = 
+    currentInputPrice <= 0 || 
+    currentInputPrice === 25000 || 
+    currentInputPrice === 50000 || 
+    currentInputPrice === 350000 || 
+    currentInputPrice === 500000;
+
+  if (isDefaultPlaceholder) {
+    return {
+      matchedItem: null,
+      query,
+      priceLow: 0,
+      priceHigh: 0,
+      priceAvg: 0,
+      unit: defaultUnit,
+      sourceNote: 'Item belum terdaftar di database benchmark bawaan',
+      isVerified: false,
+      isPlaceholderPrice: true,
+      googleSearchUrl: googleUrl,
+      tokopediaSearchUrl: tokpedUrl,
+      indotradingSearchUrl: indotradingUrl
+    };
+  }
+
+  // Jika pengguna sudah memasukkan harga custom riil yang valid
+  const pLow = Math.round(currentInputPrice * 0.85);
+  const pHigh = Math.round(currentInputPrice * 1.25);
+  const pAvg = Math.round(currentInputPrice);
 
   return {
     matchedItem: null,
@@ -394,7 +652,9 @@ export function searchMarketPriceBenchmark(
     priceHigh: pHigh,
     priceAvg: pAvg,
     unit: defaultUnit,
-    sourceNote: 'Estimasi Algoritmik Pasar (-15% s/d +25%) • Klik link Google untuk cek live vendor',
+    sourceNote: 'Rentang toleransi pengadaan dihitung dari tarif input Anda (-15% s/d +25%)',
+    isVerified: false,
+    isPlaceholderPrice: false,
     googleSearchUrl: googleUrl,
     tokopediaSearchUrl: tokpedUrl,
     indotradingSearchUrl: indotradingUrl

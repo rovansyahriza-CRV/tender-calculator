@@ -1174,8 +1174,9 @@ export const ResourceLookupModal: React.FC<Props> = ({
                     query={matName}
                     currentPrice={matRate}
                     unit={matUnit}
-                    onSelectPrice={(selectedP) => {
+                    onSelectPrice={(selectedP, selectedU) => {
                       setMatRate(selectedP);
+                      if (selectedU) setMatUnit(selectedU);
                     }}
                   />
                 )}
@@ -1939,7 +1940,10 @@ export const ResourceLookupModal: React.FC<Props> = ({
                             query={editMatName}
                             currentPrice={editMatRate}
                             unit={editMatUnit}
-                            onSelectPrice={(newP) => setEditMatRate(newP)}
+                            onSelectPrice={(newP, newU) => {
+                              setEditMatRate(newP);
+                              if (newU) setEditMatUnit(newU);
+                            }}
                           />
                         )}
 
@@ -2241,7 +2245,10 @@ export const ResourceLookupModal: React.FC<Props> = ({
                             query={editMatName}
                             currentPrice={editMatRate}
                             unit={editMatUnit}
-                            onSelectPrice={(newP) => setEditMatRate(newP)}
+                            onSelectPrice={(newP, newU) => {
+                              setEditMatRate(newP);
+                              if (newU) setEditMatUnit(newU);
+                            }}
                           />
                         )}
 
