@@ -295,7 +295,28 @@ export const ImportExcelModal: React.FC<Props> = ({ isOpen, onClose, onImportCon
                               <span>{item.description}</span>
                             </div>
                           ) : (
-                            item.description
+                            <div>
+                              <div style={{ fontWeight: 600, color: '#0f172a' }}>{item.description}</div>
+                              {(item.size || item.pipeClass || (item.inchDia && item.inchDia > 0)) && (
+                                <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                  {item.size && (
+                                    <span style={{ fontSize: '10px', background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '3px', fontWeight: 'bold', border: '1px solid #bae6fd' }}>
+                                      📏 Size: {item.size}
+                                    </span>
+                                  )}
+                                  {item.pipeClass && (
+                                    <span style={{ fontSize: '10px', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '3px', fontWeight: 'bold', border: '1px solid #fde68a' }}>
+                                      🏷️ Class: {item.pipeClass}
+                                    </span>
+                                  )}
+                                  {item.inchDia && item.inchDia > 0 && (
+                                    <span style={{ fontSize: '10px', background: '#ecfdf5', color: '#047857', padding: '1px 6px', borderRadius: '3px', fontWeight: 'bold', border: '1px solid #a7f3d0' }}>
+                                      ⚡ {item.inchDia} In-Dia
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </td>
                         <td style={{ padding: '6px 10px', textAlign: 'right', fontFamily: 'monospace' }}>

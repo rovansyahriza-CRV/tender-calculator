@@ -13,7 +13,28 @@ export interface ImportedBoQRow {
   unitPrice: number;
   totalCost: number;
   isCategory: boolean;
+  // Metadata Piping MTO & Engineering BoQ
+  pipeClass?: string;
+  size?: string;
+  materialSpec?: string;
+  inchDia?: number;
 }
+
+// Helper untuk standarisasi format ukuran pipa / komponen (misal: "0.75" -> "0.75\"", "1" -> "1\"")
+export const formatSize = (s: string | number | undefined): string => {
+  if (s === undefined || s === null) return '';
+  const str = String(s).trim();
+  if (!str) return '';
+  // Jika sudah memiliki simbol atau satuan ukuran (", ', mm, cm, in, inch, dn, nps)
+  if (/["'”]|(inch|in|mm|cm|dn|nps)$/i.test(str)) {
+    return str;
+  }
+  // Jika angka desimal murni, bilangan bulat, atau pecahan (misal: "0.75", "1", "1.5", "2", "1/2", "3/4", "1 1/2")
+  if (/^\d+(\.\d+)?$/.test(str) || /^\d+\/\d+$/.test(str) || /^\d+\s+\d+\/\d+$/.test(str)) {
+    return `${str}"`;
+  }
+  return str;
+};
 
 export const readExcelSheets = async (file: File): Promise<{ sheetNames: string[]; workbook: XLSX.WorkBook }> => {
   const data = await file.arrayBuffer();
@@ -45,13 +66,24 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
   const r1 = (rows[headerIdx] || []).map(c => String(c).trim().toUpperCase());
   const r2 = (rows[headerIdx + 1] || []).map(c => String(c).trim().toUpperCase());
 
-  // Deteksi apakah r2 adalah baris data pertama atau sub-header
-  const r2IsData = rows[headerIdx + 1] && rows[headerIdx + 1].some(c => typeof c === 'number' || (typeof c === 'string' && /^\d+$/.test(c.trim())));
+  // Deteksi apakah r2 adalah baris data pertama atau sub-header kolom
+  const nextRow = rows[headerIdx + 1] || [];
+  const r2FilledCells = nextRow.filter(c => c !== null && c !== undefined && String(c).trim() !== '');
+  const r2HasNumbers = nextRow.some(c => typeof c === 'number' || (typeof c === 'string' && /^\d+$/.test(c.trim())));
+
+  const subHeaderKeywords = ['A', 'B', 'QTY', 'UNIT', 'PRICE', 'RATE', 'IDR', 'RP', 'DAYS', 'TREATED', 'SATUAN', 'TOTAL', 'HARGA', 'JUMLAH', 'SPEC'];
+  const r2HasHeaderKeywords = nextRow.some(c => subHeaderKeywords.includes(String(c).trim().toUpperCase()));
+
+  // Sub-header ASLI hanya jika bukan angka dan (terisi >= 3 kolom atau ada keyword subheader tabel).
+  // Baris dengan 1 atau 2 sel (seperti "PIPE" atau "CLASS - A2K") adalah Kategori / Bab, BUKAN subheader kolom!
+  const r2IsSubHeader = !r2HasNumbers && (r2FilledCells.length >= 3 || r2HasHeaderKeywords);
+  const startRow = r2IsSubHeader ? headerIdx + 2 : headerIdx + 1;
+
   const combinedHeaders: string[] = [];
   const maxCols = Math.max(r1.length, r2.length);
   for (let c = 0; c < maxCols; c++) {
     const h1 = r1[c] || '';
-    const h2 = (!r2IsData ? r2[c] : '') || '';
+    const h2 = (r2IsSubHeader ? r2[c] : '') || '';
     combinedHeaders.push(`${h1} ${h2}`.trim());
   }
 
@@ -70,10 +102,129 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
 
   const colNo = combinedHeaders.findIndex((h, idx) => {
     if (idx === colUnique) return false;
-    return h === 'NO' || h === 'NO.' || h === 'ITEM' || h.startsWith('NO');
+    return h === 'NO' || h === 'NO.' || h === 'ITEM' || h === 'ITEM NO' || h === 'ITEM NO.' || h.startsWith('NO');
   });
-  const colParentDesc = combinedHeaders.findIndex(h => h.includes('DESCRIPTION') || h.includes('URAIAN PEKERJAAN') || h.includes('NAMA BARANG'));
-  const colScope = combinedHeaders.findIndex(h => h.includes('SCOPE OF WORK') || h.includes('SCOPE') || h.includes('ACTIVITY') || h.includes('EQUIPMENTS'));
+
+  // Kolom Piping MTO & Engineering Spool Spesifikasi:
+  // 1. Kolom Pipe Class / Rating
+  const colClass = combinedHeaders.findIndex(h => {
+    return (
+      h.includes('PIPE CLASS') ||
+      h.includes('PIPING CLASS') ||
+      h.includes('PRESSURE CLASS') ||
+      h.includes('RATING') ||
+      h === 'CLASS' ||
+      h.startsWith('CLASS ') ||
+      h.includes('SERVICE')
+    );
+  });
+
+  // 2. Kolom Size / Diameter (kecualikan Inch Dia dan Size 2)
+  const colSize = combinedHeaders.findIndex(h => {
+    if (h.includes('INCH DIA') || h.includes('INCH. DIA') || h.includes('TOTAL INCH') || h.includes('DIA INCH') || h.includes('SIZE 2') || h.includes('SIZE2')) return false;
+    return (
+      h === 'SIZE' ||
+      h.startsWith('SIZE ') ||
+      h.startsWith('SIZE(') ||
+      h.includes('SIZE (INCH)') ||
+      h.includes('SIZE (IN)') ||
+      h.includes('PIPE SIZE') ||
+      h.includes('NOMINAL SIZE') ||
+      h === 'NPS' ||
+      h === 'DIA' ||
+      h === 'DIAMETER' ||
+      h === 'OD' ||
+      h.includes('UKURAN') ||
+      h.includes('DIMENSI') ||
+      h.includes('DIMENSION')
+    );
+  });
+
+  // 3. Kolom Size 2 (Reducing / Branch Size)
+  const colSize2 = combinedHeaders.findIndex(h => {
+    return (
+      h.includes('SIZE 2') ||
+      h.includes('SIZE2') ||
+      h.includes('REDUCING SIZE') ||
+      h.includes('BRANCH SIZE') ||
+      h.includes('OUTLET SIZE')
+    );
+  });
+
+  // 4. Kolom Material Specification
+  const colMaterial = combinedHeaders.findIndex(h => {
+    return (
+      h.includes('MATERIAL DESCRIPTION') ||
+      h.includes('MATERIAL SPEC') ||
+      h.includes('MATERIAL SPECIFICATION') ||
+      h.includes('SPECIFICATION') ||
+      h.includes('SPESIFIKASI') ||
+      h.includes('GRADE') ||
+      h.includes('STANDAR') ||
+      h.includes('STANDARD') ||
+      (h.includes('MATERIAL') && !h.includes('EQUIPMENT'))
+    );
+  });
+
+  // 5. Kolom Schedule / Wall Thickness
+  const colSchedule = combinedHeaders.findIndex(h => {
+    return (
+      h === 'SCH' ||
+      h === 'SCHEDULE' ||
+      h.startsWith('SCH ') ||
+      h.includes('SCHEDULE') ||
+      h.includes('WALL THICKNESS') ||
+      h.includes('THICKNESS') ||
+      h === 'WT'
+    );
+  });
+
+  // 6. Kolom Ends / Connection
+  const colEnds = combinedHeaders.findIndex(h => {
+    return (
+      h === 'ENDS' ||
+      h.includes('END PREP') ||
+      h.includes('END PREPARATION') ||
+      h.includes('CONNECTION') ||
+      h.includes('FACING')
+    );
+  });
+
+  // 7. Kolom Inch Dia / Joint Inch
+  const colInchDia = combinedHeaders.findIndex(h => {
+    return (
+      h.includes('INCH. DIA') ||
+      h.includes('INCH DIA') ||
+      h.includes('INCH-DIA') ||
+      h.includes('DIA INCH') ||
+      h.includes('INCH DIAMETER') ||
+      (h.includes('INCH') && (h.includes('DIA') || h.includes('DIAMETER'))) ||
+      h.includes('TOTAL INCH DIA') ||
+      h.includes('JOINT INCH') ||
+      h.includes('INCH JOINT') ||
+      h.trim() === 'INCH DIA.'
+    );
+  });
+
+  // Kolom Deskripsi Utama (kecualikan jika ini kolom MATERIAL SPEC agar tidak tertukar)
+  const colParentDesc = combinedHeaders.findIndex(h => {
+    if (h.includes('MATERIAL') || h.includes('SPEC')) return false;
+    return (
+      h === 'DESCRIPTION' ||
+      h.includes('ITEM DESCRIPTION') ||
+      h.includes('COMMODITY') ||
+      h.includes('URAIAN PEKERJAAN') ||
+      h.includes('URAIAN') ||
+      h.includes('NAMA BARANG') ||
+      h.includes('NAMA ITEM') ||
+      h.includes('DESCRIPTION')
+    );
+  });
+
+  const colScope = combinedHeaders.findIndex((h, idx) => {
+    if (idx === colParentDesc) return false;
+    return h.includes('SCOPE OF WORK') || h.includes('SCOPE') || h.includes('ACTIVITY') || h.includes('EQUIPMENTS');
+  });
 
   // Deteksi Kolom Volume (HANYA kuantitas fisik, cegah kolom Total IDR / Total Cost)
   let colQty = combinedHeaders.findIndex(h => {
@@ -99,7 +250,7 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
 
   const colReq = combinedHeaders.findIndex(h => h.includes('REQ/DAY') || h.includes('REQ'));
   const colDays = combinedHeaders.findIndex(h => h.includes('VOLUME (DAYS)') || h.includes('DAYS'));
-  const colUnit = combinedHeaders.findIndex(h => h === 'UNIT' || h.includes('SATUAN') || h === 'UOM');
+  const colUnit = combinedHeaders.findIndex(h => h === 'UNIT' || h.startsWith('UNIT ') || h.includes('SATUAN') || h === 'UOM' || h.includes('MEASURE'));
   const colPrice = combinedHeaders.findIndex(h => (h.includes('SERVICE CHARGE') || h.includes('UNIT PRICE') || h.includes('HARGA SATUAN') || h.trim() === 'B') && !h.includes('SUB TOTAL'));
 
   let defaultExtractedUnit = 'Unit';
@@ -112,7 +263,7 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
   }
 
   const isDualDescModel = colParentDesc !== -1 && colScope !== -1 && colParentDesc !== colScope;
-  const startRow = r2IsData ? headerIdx + 1 : headerIdx + 2;
+  const isMtoModel = (colSize !== -1 || colClass !== -1 || colMaterial !== -1 || colInchDia !== -1) && !isDualDescModel;
 
   let currentParentNo = '';
   let currentParentDesc = '';
@@ -136,7 +287,7 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
     let rawScope = colScope !== -1 ? String(row[colScope] || '').trim() : '';
 
     // Jika format tunggal (seperti POMA / Standar), cari teks deskripsi di rentang kolom antara No dan kolom numerik pertama
-    if (!isDualDescModel) {
+    if (!isDualDescModel && !isMtoModel) {
       if (!rawScope && !rawParentDesc) {
         const firstNumCol = [colReq, colDays, colQty, colPrice].filter(c => c !== -1).sort((a, b) => a - b)[0] || row.length;
         for (let c = (colNo !== -1 ? colNo + 1 : 1); c < firstNumCol; c++) {
@@ -197,8 +348,17 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
         currentSubHeader = ''; // Reset sub-header saat bab utama berganti
         childCounter = 1;
       } else {
-        // Sub-Header atau kelompok pekerjaan (seperti: "Install Anchor bolt (Material A307)")
-        currentSubHeader = cleanDesc;
+        // Header tanpa nomor item (seperti "PIPE" atau "CLASS - A2K")
+        const isClassSubSection = /^CLASS\s*[-:]?\s*/i.test(cleanDesc) || /^SUB\s*[-:]?\s*/i.test(cleanDesc);
+        if (!currentParentDesc || (!isClassSubSection && cleanDesc.toUpperCase() !== currentParentDesc.toUpperCase())) {
+          // Bab / Disiplin Utama (misal: "PIPE", "FLANGES", "VALVES")
+          currentParentDesc = cleanDesc;
+          currentSubHeader = '';
+          childCounter = 1;
+        } else {
+          // Sub-Header / Klasifikasi (misal: "CLASS - A2K", "CLASS - A3A")
+          currentSubHeader = cleanDesc;
+        }
       }
 
       parsedItems.push({
@@ -231,9 +391,48 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
       currentParentDesc = rawParentDesc;
     }
 
+    const baseDesc = (rawScope || rawParentDesc).trim();
+
+    // Ekstrak nilai metadata Piping MTO
+    const rawClass = colClass !== -1 ? String(row[colClass] || '').trim() : '';
+    const rawSize = colSize !== -1 ? String(row[colSize] || '').trim() : '';
+    const rawSize2 = colSize2 !== -1 ? String(row[colSize2] || '').trim() : '';
+    const rawMaterial = colMaterial !== -1 ? String(row[colMaterial] || '').trim() : '';
+    const rawSchedule = colSchedule !== -1 ? String(row[colSchedule] || '').trim() : '';
+    const rawEnds = colEnds !== -1 ? String(row[colEnds] || '').trim() : '';
+
+    let inchDiaVal: number | undefined = undefined;
+    if (colInchDia !== -1) {
+      const rawIdVal = row[colInchDia];
+      if (typeof rawIdVal === 'number' && !isNaN(rawIdVal)) {
+        inchDiaVal = rawIdVal;
+      } else if (rawIdVal) {
+        const cleanNum = String(rawIdVal).trim().replace(/,/g, '');
+        const parsed = parseFloat(cleanNum);
+        if (!isNaN(parsed) && parsed > 0) inchDiaVal = parsed;
+      }
+    }
+
+    let fullSize = formatSize(rawSize);
+    if (rawSize2) {
+      const formatted2 = formatSize(rawSize2);
+      if (formatted2) {
+        fullSize = fullSize ? `${fullSize} x ${formatted2}` : formatted2;
+      }
+    }
+
+    let effectiveClass = rawClass;
+    if (!effectiveClass && currentSubHeader) {
+      const match = currentSubHeader.match(/CLASS\s*[-:]?\s*([A-Za-z0-9_#]+)/i);
+      if (match) {
+        effectiveClass = match[1];
+      }
+    }
+
     // C. PENGGABUNGAN TEKS ITEM & SCOPE SECARA PRESISI
     let finalItemNo: string;
     let finalDescription: string;
+    let specPartToStore: string | undefined = undefined;
 
     if (isDualDescModel) {
       // Model Tubular OCTG: Menggabungkan Tipe Pipa + Scope Pekerjaan
@@ -242,12 +441,53 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
         ? `${currentParentDesc} - ${rawScope}` 
         : (currentParentDesc || rawScope);
       childCounter++;
+    } else if (isMtoModel) {
+      // Model Piping MTO & Engineering Spool BoQ
+      finalItemNo = rawNo || (currentParentNo ? `${currentParentNo}.${childCounter}` : `${childCounter}`);
+      if (!rawNo) childCounter++;
+
+      const commodity = (baseDesc || currentSubHeader || currentParentDesc || 'ITEM').trim();
+      const parts: string[] = [];
+
+      // 1. Commodity + Size + Class
+      let headPart = commodity;
+      if (fullSize && !headPart.toLowerCase().includes(fullSize.toLowerCase())) {
+        headPart = `${headPart} ${fullSize}`;
+      }
+      if (effectiveClass && !headPart.toUpperCase().includes(effectiveClass.toUpperCase())) {
+        headPart = `${headPart} (${effectiveClass})`;
+      }
+      parts.push(headPart);
+
+      // 2. Material Specification & Schedule & Ends
+      let specPart = rawMaterial;
+      if (rawSchedule) {
+        const cleanSch = rawSchedule.toUpperCase().startsWith('SCH') ? rawSchedule : `SCH ${rawSchedule}`;
+        if (!specPart.toUpperCase().includes(cleanSch.toUpperCase())) {
+          specPart = specPart ? `${cleanSch}, ${specPart}` : cleanSch;
+        }
+      }
+      if (rawEnds) {
+        if (!specPart.toUpperCase().includes(rawEnds.toUpperCase())) {
+          specPart = specPart ? `${specPart}, ${rawEnds}` : rawEnds;
+        }
+      }
+      if (specPart) {
+        parts.push(specPart);
+        specPartToStore = specPart;
+      }
+
+      finalDescription = parts.join(' - ');
+
+      // 3. Tambahkan tag Inch Dia jika tersedia
+      if (inchDiaVal && inchDiaVal > 0) {
+        finalDescription = `${finalDescription} [${inchDiaVal} In-Dia]`;
+      }
     } else {
       // Model Standar / General Services
       finalItemNo = rawNo || (currentParentNo ? `${currentParentNo}.${childCounter}` : `${childCounter}`);
       if (!rawNo) childCounter++;
 
-      const baseDesc = (rawScope || rawParentDesc).trim();
       finalDescription = baseDesc;
 
       // Smart Context Inheritance:
@@ -281,7 +521,11 @@ export const parseSheetData = (workbook: XLSX.WorkBook, sheetName: string): Impo
       unit: finalUnit,
       unitPrice: priceVal,
       totalCost: qtyVal * priceVal,
-      isCategory: false
+      isCategory: false,
+      pipeClass: effectiveClass || undefined,
+      size: fullSize || undefined,
+      materialSpec: specPartToStore || rawMaterial || undefined,
+      inchDia: inchDiaVal
     });
   }
 

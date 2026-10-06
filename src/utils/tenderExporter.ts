@@ -40,6 +40,9 @@ export const exportTenderToExcel = ({
       'Line ID (Lookup Key)',
       'No Item',
       'Uraian Pekerjaan / Spesifikasi',
+      'Size',
+      'Pipe Class',
+      'Inch Dia',
       'Kategori / Bab',
       'Volume (Qty)',
       'Satuan',
@@ -62,6 +65,9 @@ export const exportTenderToExcel = ({
         boq.rawLineId || boq.itemNo || `BAB-${idx + 1}`,
         boq.itemNo || '-',
         boq.description.toUpperCase(),
+        '',
+        '',
+        '',
         'HEADER BAB',
         '',
         '',
@@ -93,6 +99,9 @@ export const exportTenderToExcel = ({
       boq.rawLineId || boq.itemNo || `R${idx + 1}`,
       boq.itemNo || '-',
       boq.description,
+      boq.size || '-',
+      boq.pipeClass || '-',
+      boq.inchDia !== undefined ? boq.inchDia : '-',
       currentCategory,
       boq.qty,
       boq.unit,
@@ -118,6 +127,9 @@ export const exportTenderToExcel = ({
     '',
     '',
     '',
+    '',
+    '',
+    '',
     Math.round(grandTotalDirect),
     '',
     Math.round(subtotalBid),
@@ -128,6 +140,9 @@ export const exportTenderToExcel = ({
       'TOTAL+PPN',
       '',
       `GRAND TOTAL PENAWARAN (TERMASUK PPN ${commercialConfig.taxPercent}%)`,
+      '',
+      '',
+      '',
       '',
       '',
       '',
@@ -170,12 +185,12 @@ export const exportTenderToExcel = ({
     ['Cara Pakai:', 'Masukkan di sel A7 (baris pertama item BoQ), lalu seret (drag) ke paling bawah. Kolom F = Volume/Qty, E = Uraian Pekerjaan, D = No Item.'],
     [],
     ['1. Formula Modern (XLOOKUP) — Rekomendasi:'],
-    ['Rumus Ambil Harga Satuan (Unit Price):', "=XLOOKUP(A7 & \"\", 'Rekap Penawaran BoQ'!$A:$A & \"\", 'Rekap Penawaran BoQ'!$K:$K, 0)"],
-    ['Rumus Ambil Total Harga (Total Bid):', "=XLOOKUP(A7 & \"\", 'Rekap Penawaran BoQ'!$A:$A & \"\", 'Rekap Penawaran BoQ'!$L:$L, 0)"],
+    ['Rumus Ambil Harga Satuan (Unit Price):', "=XLOOKUP(A7 & \"\", 'Rekap Penawaran BoQ'!$A:$A & \"\", 'Rekap Penawaran BoQ'!$N:$N, 0)"],
+    ['Rumus Ambil Total Harga (Total Bid):', "=XLOOKUP(A7 & \"\", 'Rekap Penawaran BoQ'!$A:$A & \"\", 'Rekap Penawaran BoQ'!$O:$O, 0)"],
     [],
     ['2. Formula Klasik (VLOOKUP):'],
-    ['Rumus Ambil Harga Satuan (Kolom ke-11):', "=VLOOKUP(A7, 'Rekap Penawaran BoQ'!$A:$M, 11, FALSE)"],
-    ['Rumus Ambil Total Harga (Kolom ke-12):', "=VLOOKUP(A7, 'Rekap Penawaran BoQ'!$A:$M, 12, FALSE)"],
+    ['Rumus Ambil Harga Satuan (Kolom ke-14):', "=VLOOKUP(A7, 'Rekap Penawaran BoQ'!$A:$P, 14, FALSE)"],
+    ['Rumus Ambil Total Harga (Kolom ke-15):', "=VLOOKUP(A7, 'Rekap Penawaran BoQ'!$A:$P, 15, FALSE)"],
     [],
     ['3. Tips Penting Jika Muncul #N/A:'],
     ['Solusi Tipe Data:', 'Tambahkan & "" pada lookup value: =XLOOKUP(A7 & "", ...) agar angka 1 cocok dengan teks "1".']
@@ -190,16 +205,19 @@ export const exportTenderToExcel = ({
     { wch: 22 }, // A: Line ID
     { wch: 12 }, // B: No Item
     { wch: 45 }, // C: Uraian
-    { wch: 26 }, // D: Kategori
-    { wch: 14 }, // E: Qty
-    { wch: 10 }, // F: Satuan
-    { wch: 18 }, // G: Output / Hari
-    { wch: 18 }, // H: Durasi (Hari)
-    { wch: 20 }, // I: Direct Unit Rate
-    { wch: 22 }, // J: Total Direct Cost
-    { wch: 22 }, // K: Harga Satuan Penawaran
-    { wch: 24 }, // L: Total Harga Penawaran
-    { wch: 45 }  // M: Rincian Resource
+    { wch: 12 }, // D: Size
+    { wch: 14 }, // E: Pipe Class
+    { wch: 12 }, // F: Inch Dia
+    { wch: 26 }, // G: Kategori
+    { wch: 14 }, // H: Qty
+    { wch: 10 }, // I: Satuan
+    { wch: 18 }, // J: Output / Hari
+    { wch: 18 }, // K: Durasi (Hari)
+    { wch: 20 }, // L: Direct Unit Rate
+    { wch: 22 }, // M: Total Direct Cost
+    { wch: 22 }, // N: Harga Satuan Penawaran
+    { wch: 24 }, // O: Total Harga Penawaran
+    { wch: 45 }  // P: Rincian Resource
   ];
 
   const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);

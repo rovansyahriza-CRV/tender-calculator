@@ -74,6 +74,11 @@ export interface BoQItem {
   outputPerDay?: number; // Target output harian (pembagi daily spread untuk menentukan unit price)
   treatments: TreatmentItem[];
   isCategory?: boolean;
+  // Metadata Piping MTO & Engineering BoQ
+  pipeClass?: string;
+  size?: string;
+  materialSpec?: string;
+  inchDia?: number;
 }
 
 export interface TenderProject {
@@ -657,7 +662,11 @@ export default function App() {
         unit: row.unit || (row.isCategory ? '' : 'Unit'),
         outputPerDay: (row.reqPerDay && row.reqPerDay > 0) ? row.reqPerDay : 1,
         treatments: [],
-        isCategory: row.isCategory
+        isCategory: row.isCategory,
+        pipeClass: row.pipeClass,
+        size: row.size,
+        materialSpec: row.materialSpec,
+        inchDia: row.inchDia
       }));
 
     if (!activeTenderId) {
@@ -804,6 +813,9 @@ export default function App() {
         const descMatch = (item.description || '').toLowerCase().includes(q);
         const noMatch = (item.itemNo || '').toLowerCase().includes(q);
         const unitMatch = (item.unit || '').toLowerCase().includes(q);
+        const sizeMatch = (item.size || '').toLowerCase().includes(q);
+        const classMatch = (item.pipeClass || '').toLowerCase().includes(q);
+        const matMatch = (item.materialSpec || '').toLowerCase().includes(q);
         const treatmentMatch = item.treatments?.some(t => 
           (t.category || '').toLowerCase().includes(q) ||
           (t.description || '').toLowerCase().includes(q) ||
@@ -812,7 +824,7 @@ export default function App() {
           t.materialList?.some(mat => mat.name.toLowerCase().includes(q)) ||
           t.consumableList?.some(c => c.name.toLowerCase().includes(q))
         );
-        return descMatch || noMatch || unitMatch || treatmentMatch;
+        return descMatch || noMatch || unitMatch || sizeMatch || classMatch || matMatch || treatmentMatch;
       });
     }
 
@@ -1767,9 +1779,28 @@ export default function App() {
                         ID: {boq.rawLineId}
                       </span>
                     )}
-                    <span style={{ textAlign: 'left', lineHeight: '1.4', flex: 1 }}>
-                      {boq.description}
-                    </span>
+                    <div style={{ textAlign: 'left', lineHeight: '1.4', flex: 1, minWidth: '200px' }}>
+                      <span style={{ fontWeight: 'bold' }}>{boq.description}</span>
+                      {(boq.size || boq.pipeClass || (boq.inchDia && boq.inchDia > 0)) && (
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {boq.size && (
+                            <span style={{ fontSize: '10px', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '3px', fontWeight: 'bold', border: '1px solid #bfdbfe' }}>
+                              📏 Size: {boq.size}
+                            </span>
+                          )}
+                          {boq.pipeClass && (
+                            <span style={{ fontSize: '10px', background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: '3px', fontWeight: 'bold', border: '1px solid #fde68a' }}>
+                              🏷️ Class: {boq.pipeClass}
+                            </span>
+                          )}
+                          {boq.inchDia && boq.inchDia > 0 && (
+                            <span style={{ fontSize: '10px', background: '#d1fae5', color: '#065f46', padding: '1px 6px', borderRadius: '3px', fontWeight: 'bold', border: '1px solid #a7f3d0' }}>
+                              ⚡ {boq.inchDia} In-Dia
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#0f172a', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
