@@ -1496,7 +1496,10 @@ export default function App() {
                 flexWrap: 'wrap',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: '12px'
+                gap: '12px',
+                position: 'sticky',
+                top: '12px',
+                zIndex: 20
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 320px' }}>
                   {/* Search Input Box */}
@@ -1672,7 +1675,18 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              filteredBoqList.map(boq => {
+              <div 
+                className="boq-scroll-container"
+                style={{
+                  maxHeight: 'calc(100vh - 280px)',
+                  minHeight: '380px',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  paddingRight: '6px',
+                  paddingBottom: '32px'
+                }}
+              >
+                {filteredBoqList.map((boq, index) => {
             // A. BANNER HEADER BAB / KATEGORI
             if (boq.isCategory) {
               const isMajorChapter = !!boq.itemNo && boq.itemNo !== '-';
@@ -1680,7 +1694,7 @@ export default function App() {
                 <div
                   key={boq.id}
                   style={{
-                    margin: isMajorChapter ? '26px 0 12px 0' : '18px 0 10px 0',
+                    margin: isMajorChapter ? (index === 0 ? '4px 0 12px 0' : '26px 0 12px 0') : (index === 0 ? '4px 0 10px 0' : '18px 0 10px 0'),
                     padding: isMajorChapter ? '12px 18px' : '10px 16px',
                     backgroundColor: isMajorChapter ? '#0f172a' : '#1e293b',
                     color: '#ffffff',
@@ -2135,8 +2149,9 @@ export default function App() {
                 )}
               </div>
             );
-          })
-        )}
+          })}
+              </div>
+            )}
           </>
         )}
       </div>

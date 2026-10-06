@@ -109,3 +109,29 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Custom Scrollbar untuk Daftar BoQ Items */
+.boq-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+.boq-scroll-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.boq-scroll-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.boq-scroll-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+
+.boq-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
