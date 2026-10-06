@@ -880,7 +880,7 @@ export default function App() {
               />
             </div>
             <div style={{ borderLeft: '1px solid #334155', paddingLeft: '14px' }}>
-              <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Smart Estimator Engine</h1>
+              <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', whiteSpace: 'nowrap', color: '#fbbf24' }}>Smart Estimator Engine</h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>Proyek Tender:</span>
                 <select
