@@ -92,11 +92,29 @@ export const ResourceLookupModal: React.FC<Props> = ({
           setEquipmentData(cloudItems);
           saveMasterEquipment(cloudItems);
         } else if (type === 'material') {
-          setMaterialData(cloudItems);
-          saveMasterMaterial(cloudItems);
+          const normalized = (cloudItems as MasterMaterialItem[]).map(item => {
+            const rate = Number(item.standardRate) || 0;
+            return {
+              ...item,
+              standardRate: rate,
+              priceLow: item.priceLow != null && !isNaN(Number(item.priceLow)) ? Number(item.priceLow) : Math.round(rate * 0.85),
+              priceHigh: item.priceHigh != null && !isNaN(Number(item.priceHigh)) ? Number(item.priceHigh) : Math.round(rate * 1.25)
+            };
+          });
+          setMaterialData(normalized);
+          saveMasterMaterial(normalized);
         } else if (type === 'consumable') {
-          setConsumableData(cloudItems);
-          saveMasterConsumable(cloudItems);
+          const normalized = (cloudItems as MasterMaterialItem[]).map(item => {
+            const rate = Number(item.standardRate) || 0;
+            return {
+              ...item,
+              standardRate: rate,
+              priceLow: item.priceLow != null && !isNaN(Number(item.priceLow)) ? Number(item.priceLow) : Math.round(rate * 0.85),
+              priceHigh: item.priceHigh != null && !isNaN(Number(item.priceHigh)) ? Number(item.priceHigh) : Math.round(rate * 1.25)
+            };
+          });
+          setConsumableData(normalized);
+          saveMasterConsumable(normalized);
         }
       } else if (cloudItems && cloudItems.length === 0) {
         // Jika tabel Supabase masih kosong untuk tipe ini, auto-upload dari lokal
@@ -185,22 +203,22 @@ export const ResourceLookupModal: React.FC<Props> = ({
 
   // Categories
   const manpowerCategories = useMemo(() => {
-    const set = new Set(manpowerData.map(m => m.category));
+    const set = new Set(manpowerData.map(m => m.category).filter(Boolean));
     return ['Semua', ...Array.from(set)];
   }, [manpowerData]);
 
   const equipmentCategories = useMemo(() => {
-    const set = new Set(equipmentData.map(e => e.category));
+    const set = new Set(equipmentData.map(e => e.category).filter(Boolean));
     return ['Semua', ...Array.from(set)];
   }, [equipmentData]);
 
   const materialCategories = useMemo(() => {
-    const set = new Set(materialData.map(m => m.category));
+    const set = new Set(materialData.map(m => m.category).filter(Boolean));
     return ['Semua', ...Array.from(set)];
   }, [materialData]);
 
   const consumableCategories = useMemo(() => {
-    const set = new Set(consumableData.map(c => c.category));
+    const set = new Set(consumableData.map(c => c.category).filter(Boolean));
     return ['Semua', ...Array.from(set)];
   }, [consumableData]);
 
@@ -1407,20 +1425,20 @@ export const ResourceLookupModal: React.FC<Props> = ({
                           border: '1px solid #f1f5f9'
                         }}>
                           <span style={{ color: '#334155' }}>
-                            Gaji Pokok: <strong>Rp {m.basicSalary.toLocaleString('id-ID')}</strong>
+                            Gaji Pokok: <strong>Rp {(Number(m.basicSalary) || 0).toLocaleString('id-ID')}</strong>
                           </span>
                           <span style={{ color: '#0369a1' }}>
-                            • APD/PPE: <strong>Rp {m.ppeDaily.toLocaleString('id-ID')}</strong>
+                            • APD/PPE: <strong>Rp {(Number(m.ppeDaily) || 0).toLocaleString('id-ID')}</strong>
                           </span>
                           <span style={{ color: '#047857' }}>
-                            • BPJS/Jamsostek: <strong>Rp {m.jamsostekDaily.toLocaleString('id-ID')}</strong>
+                            • BPJS/Jamsostek: <strong>Rp {(Number(m.jamsostekDaily) || 0).toLocaleString('id-ID')}</strong>
                           </span>
                           <span style={{ color: '#b45309' }}>
-                            • Makan/Mess: <strong>Rp {m.mealsDaily.toLocaleString('id-ID')}</strong>
+                            • Makan/Mess: <strong>Rp {(Number(m.mealsDaily) || 0).toLocaleString('id-ID')}</strong>
                           </span>
-                          {m.otherAllowanceDaily > 0 && (
+                          {(Number(m.otherAllowanceDaily) || 0) > 0 && (
                             <span style={{ color: '#6d28d9' }}>
-                              • Tunjangan: <strong>Rp {m.otherAllowanceDaily.toLocaleString('id-ID')}</strong>
+                              • Tunjangan: <strong>Rp {(Number(m.otherAllowanceDaily) || 0).toLocaleString('id-ID')}</strong>
                             </span>
                           )}
                         </div>
@@ -1431,7 +1449,7 @@ export const ResourceLookupModal: React.FC<Props> = ({
                           Total Mandays
                         </div>
                         <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e40af', fontFamily: 'monospace', marginBottom: '8px' }}>
-                          Rp {m.totalRate.toLocaleString('id-ID')} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>/ hr</span>
+                          Rp {(Number(m.totalRate) || 0).toLocaleString('id-ID')} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>/ hr</span>
                         </div>
                         
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', alignItems: 'center' }}>
@@ -1723,19 +1741,19 @@ export const ResourceLookupModal: React.FC<Props> = ({
                           border: '1px solid #f1f5f9'
                         }}>
                           <span style={{ color: '#334155' }}>
-                            Sewa Pokok (Dry): <strong>Rp {e.baseRentalRate.toLocaleString('id-ID')}</strong>
+                            Sewa Pokok (Dry): <strong>Rp {(Number(e.baseRentalRate) || 0).toLocaleString('id-ID')}</strong>
                           </span>
                           <span style={{ color: '#b45309' }}>
-                            • BBM ({e.fuelType}): <strong>Rp {e.bbmRate.toLocaleString('id-ID')}</strong> ({e.fuelLitersPerDay} L/hr)
+                            • BBM ({e.fuelType}): <strong>Rp {(Number(e.bbmRate) || 0).toLocaleString('id-ID')}</strong> ({e.fuelLitersPerDay || 0} L/hr)
                           </span>
-                          {e.maintenanceRate > 0 && (
+                          {(Number(e.maintenanceRate) || 0) > 0 && (
                             <span style={{ color: '#047857' }}>
-                              • Maintenance: <strong>Rp {e.maintenanceRate.toLocaleString('id-ID')}</strong>
+                              • Maintenance: <strong>Rp {(Number(e.maintenanceRate) || 0).toLocaleString('id-ID')}</strong>
                             </span>
                           )}
-                          {e.mobilizationDaily > 0 && (
+                          {(Number(e.mobilizationDaily) || 0) > 0 && (
                             <span style={{ color: '#64748b' }}>
-                              • Mob/Demob: <strong>Rp {e.mobilizationDaily.toLocaleString('id-ID')}</strong>
+                              • Mob/Demob: <strong>Rp {(Number(e.mobilizationDaily) || 0).toLocaleString('id-ID')}</strong>
                             </span>
                           )}
                         </div>
@@ -1746,7 +1764,7 @@ export const ResourceLookupModal: React.FC<Props> = ({
                           Tarif Sewa (Wet)
                         </div>
                         <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#b45309', fontFamily: 'monospace', marginBottom: '8px' }}>
-                          Rp {e.totalRate.toLocaleString('id-ID')} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>/ hari</span>
+                          Rp {(Number(e.totalRate) || 0).toLocaleString('id-ID')} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>/ hari</span>
                         </div>
                         
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', alignItems: 'center' }}>
@@ -2016,13 +2034,13 @@ export const ResourceLookupModal: React.FC<Props> = ({
                           border: '1px solid #f1f5f9'
                         }}>
                           <span style={{ color: '#166534', fontWeight: '600' }}>
-                            🟢 Bawah: Rp {m.priceLow.toLocaleString('id-ID')}
+                            🟢 Bawah: Rp {(m.priceLow != null ? Number(m.priceLow) : Math.round((Number(m.standardRate) || 0) * 0.85)).toLocaleString('id-ID')}
                           </span>
                           <span style={{ color: '#1e40af', fontWeight: '600' }}>
-                            • 🔵 Rata-rata: Rp {m.standardRate.toLocaleString('id-ID')}
+                            • 🔵 Rata-rata: Rp {(Number(m.standardRate) || 0).toLocaleString('id-ID')}
                           </span>
                           <span style={{ color: '#991b1b', fontWeight: '600' }}>
-                            • 🔴 Atas: Rp {m.priceHigh.toLocaleString('id-ID')}
+                            • 🔴 Atas: Rp {(m.priceHigh != null ? Number(m.priceHigh) : Math.round((Number(m.standardRate) || 0) * 1.25)).toLocaleString('id-ID')}
                           </span>
                           <a
                             href={`https://www.google.com/search?q=${encodeURIComponent(`harga ${m.name} terbaru indonesia`)}`}
@@ -2051,7 +2069,7 @@ export const ResourceLookupModal: React.FC<Props> = ({
                           Harga Standar
                         </div>
                         <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#047857', fontFamily: 'monospace', marginBottom: '8px' }}>
-                          Rp {m.standardRate.toLocaleString('id-ID')} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>/ {m.unit}</span>
+                          Rp {(Number(m.standardRate) || 0).toLocaleString('id-ID')} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>/ {m.unit || 'unit'}</span>
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', alignItems: 'center' }}>
@@ -2324,13 +2342,13 @@ export const ResourceLookupModal: React.FC<Props> = ({
                           border: '1px solid #f1f5f9'
                         }}>
                           <span style={{ color: '#166534', fontWeight: '600' }}>
-                            🟢 Bawah: Rp {c.priceLow.toLocaleString('id-ID')}
+                            🟢 Bawah: Rp {(c.priceLow != null ? Number(c.priceLow) : Math.round((Number(c.standardRate) || 0) * 0.85)).toLocaleString('id-ID')}
                           </span>
                           <span style={{ color: '#1e40af', fontWeight: '600' }}>
-                            • 🔵 Rata-rata: Rp {c.standardRate.toLocaleString('id-ID')}
+                            • 🔵 Rata-rata: Rp {(Number(c.standardRate) || 0).toLocaleString('id-ID')}
                           </span>
                           <span style={{ color: '#991b1b', fontWeight: '600' }}>
-                            • 🔴 Atas: Rp {c.priceHigh.toLocaleString('id-ID')}
+                            • 🔴 Atas: Rp {(c.priceHigh != null ? Number(c.priceHigh) : Math.round((Number(c.standardRate) || 0) * 1.25)).toLocaleString('id-ID')}
                           </span>
                           <a
                             href={`https://www.google.com/search?q=${encodeURIComponent(`harga ${c.name} terbaru indonesia`)}`}
@@ -2359,7 +2377,7 @@ export const ResourceLookupModal: React.FC<Props> = ({
                           Harga Standar
                         </div>
                         <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#7c3aed', fontFamily: 'monospace', marginBottom: '8px' }}>
-                          Rp {c.standardRate.toLocaleString('id-ID')} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>/ {c.unit}</span>
+                          Rp {(Number(c.standardRate) || 0).toLocaleString('id-ID')} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>/ {c.unit || 'unit'}</span>
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', alignItems: 'center' }}>

@@ -537,8 +537,12 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     };
     setCustomManpowerList(prev => [...prev, newItem]);
     setCustomCrewRate(item.totalRate);
-    if (!customDesc.trim()) {
+    setCustomDailyWage(item.totalRate);
+    if (!customDesc.trim() || sowType === 'manpower') {
       setCustomDesc(item.role);
+    }
+    if (item.unit && (sowType === 'manpower' || !customUnit)) {
+      setCustomUnit(item.unit);
     }
     if (item.category && item.category !== 'Semua') {
       setCustomCategory(item.category);
@@ -562,8 +566,12 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     };
     setCustomEquipmentList(prev => [...prev, newItem]);
     setCustomEquipRate(item.totalRate);
-    if (!customDesc.trim()) {
+    setCustomEquipRentalRate(item.totalRate);
+    if (!customDesc.trim() || sowType === 'equipment') {
       setCustomDesc(item.name);
+    }
+    if (item.unit && (sowType === 'equipment' || !customUnit)) {
+      setCustomUnit(item.unit);
     }
     if (item.category && item.category !== 'Semua') {
       setCustomCategory(item.category);
@@ -580,8 +588,12 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       rate: item.standardRate
     };
     setCustomMaterialList(prev => [...prev, newItem]);
-    if (!customDesc.trim()) {
+    setCustomMaterialRate(item.standardRate);
+    if (!customDesc.trim() || sowType === 'material') {
       setCustomDesc(item.name);
+    }
+    if (item.unit && (sowType === 'material' || !customUnit)) {
+      setCustomUnit(item.unit);
     }
     if (item.category && item.category !== 'Semua') {
       setCustomCategory(item.category);
@@ -598,8 +610,12 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       rate: item.standardRate
     };
     setCustomConsumableList(prev => [...prev, newItem]);
-    if (!customDesc.trim()) {
+    setCustomConsumableRate(item.standardRate);
+    if (!customDesc.trim() || sowType === 'consumable') {
       setCustomDesc(item.name);
+    }
+    if (item.unit && (sowType === 'consumable' || !customUnit)) {
+      setCustomUnit(item.unit);
     }
     if (item.category && item.category !== 'Semua') {
       setCustomCategory(item.category);

@@ -81,7 +81,17 @@ export function loadMasterMaterial(): MasterMaterialItem[] {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(item => {
+          const rate = Number(item.standardRate) || 0;
+          return {
+            ...item,
+            standardRate: rate,
+            priceLow: item.priceLow != null && !isNaN(Number(item.priceLow)) ? Number(item.priceLow) : Math.round(rate * 0.85),
+            priceHigh: item.priceHigh != null && !isNaN(Number(item.priceHigh)) ? Number(item.priceHigh) : Math.round(rate * 1.25)
+          };
+        });
+      }
     } catch (e) {
       console.error('Gagal memuat master material dari storage:', e);
     }
@@ -105,7 +115,17 @@ export function loadMasterConsumable(): MasterMaterialItem[] {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(item => {
+          const rate = Number(item.standardRate) || 0;
+          return {
+            ...item,
+            standardRate: rate,
+            priceLow: item.priceLow != null && !isNaN(Number(item.priceLow)) ? Number(item.priceLow) : Math.round(rate * 0.85),
+            priceHigh: item.priceHigh != null && !isNaN(Number(item.priceHigh)) ? Number(item.priceHigh) : Math.round(rate * 1.25)
+          };
+        });
+      }
     } catch (e) {
       console.error('Gagal memuat master consumable dari storage:', e);
     }
