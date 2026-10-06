@@ -17,11 +17,11 @@ import {
   deleteTenderFromCloud 
 } from './utils/supabaseClient';
 import { 
-  FileUp, HardHat, Trash2, FolderPlus, Briefcase, ChevronDown, ChevronRight, 
+  FileUp, Trash2, FolderPlus, Briefcase, ChevronDown, ChevronRight, 
   Save, Download, Plus, Wrench, Sliders, CheckCircle, Users, CloudLightning,
   ShieldCheck, Eye, LogOut, Lock, Building, Search, X, Filter, LogIn, FileSpreadsheet
 } from 'lucide-react';
-import fusionFourLogo from './assets/logo-fusion-four-light.png';
+import fusionFourLogo from './assets/logo-fusion-four.png';
 
 export interface ResourceDetailItem {
   id: string;
@@ -864,11 +864,22 @@ export default function App() {
           boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' 
         }}>
           {/* SISI KIRI: BRANDING & TENDER SWITCHER */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', flex: '1 1 auto', minWidth: '320px' }}>
-            <div style={{ background: '#f59e0b', color: '#0f172a', padding: '10px', borderRadius: '8px', display: 'flex', flexShrink: 0 }}>
-              <HardHat size={26} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', flex: '1 1 auto', minWidth: '320px' }}>
+            {/* Fusion Four Company Logo (Top Left) */}
+            <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              <img 
+                src={fusionFourLogo} 
+                alt="Fusion Four" 
+                title="Fusion Four"
+                style={{ 
+                  height: '46px', 
+                  width: 'auto', 
+                  display: 'block',
+                  filter: 'drop-shadow(0 0 1px rgba(255,255,255,0.95)) drop-shadow(0 2px 4px rgba(0,0,0,0.5))'
+                }} 
+              />
             </div>
-            <div>
+            <div style={{ borderLeft: '1px solid #334155', paddingLeft: '14px' }}>
               <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Industrial Tender Estimator</h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>Proyek Tender:</span>
@@ -1069,34 +1080,6 @@ export default function App() {
                 Import Dibatasi
               </div>
             )}
-
-            {/* LOGO PERUSAHAAN FUSION FOUR DI SISI KANAN ATAS */}
-            <div 
-              title="Fusion Four"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                marginLeft: '8px',
-                paddingLeft: '14px',
-                borderLeft: '1px solid #334155',
-                flexShrink: 0
-              }}
-            >
-              <img 
-                src={fusionFourLogo} 
-                alt="Fusion Four" 
-                style={{ 
-                  height: '38px', 
-                  width: 'auto', 
-                  display: 'block',
-                  filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.35))',
-                  transition: 'transform 0.2s ease',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-              />
-            </div>
           </div>
         </div>
 

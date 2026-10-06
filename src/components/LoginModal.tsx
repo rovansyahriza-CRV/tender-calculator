@@ -6,7 +6,7 @@ import {
 import type { UserAccount } from './UserManagementModal';
 import { DEFAULT_USERS } from './UserManagementModal';
 import { fetchUsersFromCloud } from '../utils/supabaseClient';
-import fusionFourLogo from '../assets/logo-fusion-four-light.png';
+import fusionFourLogo from '../assets/logo-fusion-four.png';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -235,7 +235,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 width: 'auto', 
                 display: 'block', 
                 marginRight: (onClose && currentUser) ? '38px' : '0',
-                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                filter: 'drop-shadow(0 0 1px rgba(255,255,255,0.95)) drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
               }} 
             />
           </div>
