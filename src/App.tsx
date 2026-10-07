@@ -482,6 +482,40 @@ export default function App() {
     });
   };
 
+  const handleBatchAddTreatment = (boqIds: string[], baseTreatment: TreatmentItem, suggestedOutput?: number) => {
+    if (!activeTenderId || boqIds.length === 0) return;
+
+    setTenders(prev => prev.map(t => {
+      if (t.id === activeTenderId) {
+        return {
+          ...t,
+          boqList: t.boqList.map(b => {
+            if (boqIds.includes(b.id)) {
+              const newTreatment: TreatmentItem = {
+                ...baseTreatment,
+                id: `treat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                unit: baseTreatment.unit || b.unit || 'Unit'
+              };
+              const shouldUpdateOutput = (!b.outputPerDay || b.outputPerDay <= 1) && suggestedOutput && suggestedOutput > 1;
+              return {
+                ...b,
+                outputPerDay: shouldUpdateOutput ? suggestedOutput : (b.outputPerDay || 1),
+                treatments: [...b.treatments, newTreatment]
+              };
+            }
+            return b;
+          })
+        };
+      }
+      return t;
+    }));
+
+    setSyncNotification({
+      message: `Berhasil memetakan treatment "${baseTreatment.description}" ke ${boqIds.length} item BoQ pekerjaan!`,
+      count: boqIds.length
+    });
+  };
+
   const handleUpdateBoqOutputPerDay = (boqId: string, newOutput: number) => {
     setTenders(prev => prev.map(t => {
       if (t.id === activeTenderId) {
@@ -1051,6 +1085,32 @@ export default function App() {
             >
               <FileSpreadsheet size={16} />
               Export Excel
+            </button>
+
+            {/* Tombol Setup Base Treatment & Input Mapping */}
+            <button
+              onClick={() => {
+                setTargetBoqForDrawer(null); // Mode Master Setup Bebas
+                setIsDrawerOpen(true);
+              }}
+              title="Setup Master Base Treatment & Input Mapping — Konfigurasi preset template atau petakan treatment ke baris item BoQ"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: '#f59e0b',
+                color: '#0f172a',
+                border: '1px solid #d97706',
+                padding: '9px 14px',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                fontSize: '13px',
+                boxShadow: '0 2px 4px rgba(245, 158, 11, 0.25)'
+              }}
+            >
+              <Wrench size={15} />
+              Setup Base Treatment
             </button>
 
             {canCreateTender ? (
@@ -2292,6 +2352,7 @@ export default function App() {
           setTargetBoqForDrawer(null);
         }}
         onAddTreatment={handleAddTreatment}
+        onBatchAddTreatment={handleBatchAddTreatment}
       />
 
       {/* 7. MODAL EDIT DETAIL TURUNAN RESOURCES */}

@@ -38,6 +38,7 @@ interface Props {
   allBoqItems?: BoQItem[];
   onClose: () => void;
   onAddTreatment: (boqId: string, treatment: TreatmentItem, suggestedOutput?: number) => void;
+  onBatchAddTreatment?: (boqIds: string[], treatment: TreatmentItem, suggestedOutput?: number) => void;
 }
 
 const CUSTOM_TEMPLATES_STORAGE_KEY = 'industrial_custom_treatment_templates';
@@ -57,11 +58,35 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
   boqItem,
   allBoqItems = [],
   onClose,
-  onAddTreatment
+  onAddTreatment,
+  onBatchAddTreatment
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [addedItemIds, setAddedItemIds] = useState<Record<string, boolean>>({});
+
+  // 0. State Target BoQ untuk Mapping Treatment
+  const [selectedBoqId, setSelectedBoqId] = useState<string>(boqItem?.id || '');
+
+  // Modal Batch Mapping Treatment ke Banyak Item BoQ Sekaligus
+  const [batchModalTemplate, setBatchModalTemplate] = useState<BaseTreatmentTemplate | null>(null);
+  const [batchSelectedBoqIds, setBatchSelectedBoqIds] = useState<string[]>([]);
+  const [batchSearchQuery, setBatchSearchQuery] = useState<string>('');
+
+  useEffect(() => {
+    if (boqItem) {
+      setSelectedBoqId(boqItem.id);
+    } else {
+      setSelectedBoqId('');
+    }
+  }, [boqItem, isOpen]);
+
+  const activeTargetBoq = useMemo(() => {
+    if (selectedBoqId) {
+      return allBoqItems.find(b => b.id === selectedBoqId) || boqItem || null;
+    }
+    return null;
+  }, [selectedBoqId, allBoqItems, boqItem]);
 
   // 1. Saved Custom Templates State (Persisted in localStorage)
   const [savedCustomTemplates, setSavedCustomTemplates] = useState<BaseTreatmentTemplate[]>(() => {
@@ -253,8 +278,18 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
 
   const [customCategory, setCustomCategory] = useState('Piping & Mechanical');
   const [customDesc, setCustomDesc] = useState('');
-  const [customQty, setCustomQty] = useState<number>(boqItem?.qty || 1);
-  const [customUnit, setCustomUnit] = useState(boqItem?.unit || 'Lot');
+  const [customQty, setCustomQty] = useState<number>(activeTargetBoq?.qty || 1);
+  const [customUnit, setCustomUnit] = useState(activeTargetBoq?.unit || 'Lot');
+
+  useEffect(() => {
+    if (activeTargetBoq) {
+      setCustomQty(activeTargetBoq.qty);
+      setCustomUnit(activeTargetBoq.unit);
+    } else {
+      setCustomQty(1);
+      setCustomUnit('Unit');
+    }
+  }, [activeTargetBoq]);
   const [customOutput, setCustomOutput] = useState<number>(1);
   const [customCrewRate, setCustomCrewRate] = useState<number>(400000);
   const [customEquipRate, setCustomEquipRate] = useState<number>(100000);
@@ -415,7 +450,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     });
   }, [effectiveCatalog, searchQuery, selectedCategory]);
 
-  if (!isOpen || !boqItem) return null;
+  if (!isOpen) return null;
 
   const getEffectiveTemplate = (original: BaseTreatmentTemplate): BaseTreatmentTemplate => {
     return customizedTemplates[original.id] || original;
@@ -428,7 +463,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       category: active.category,
       description: active.description,
       qty: 1,
-      unit: active.unit || boqItem.unit,
+      unit: active.unit || activeTargetBoq?.unit || 'Unit',
       outputPerDay: active.defaultOutputPerDay,
       crewDailyRate: active.crewDailyRate,
       equipmentDailyRate: active.equipmentDailyRate,
@@ -446,7 +481,9 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
 
   const handleSaveBreakdownFromModal = (updated: TreatmentItem) => {
     if (updated.id.startsWith('treat-custom-')) {
-      onAddTreatment(boqItem.id, updated);
+      if (activeTargetBoq) {
+        onAddTreatment(activeTargetBoq.id, updated);
+      }
 
       const newTemplate: BaseTreatmentTemplate = {
         id: `custom-tpl-${Date.now()}`,
@@ -749,14 +786,25 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     });
   };
 
-  const handleSelectTemplate = (template: BaseTreatmentTemplate) => {
-    const active = getEffectiveTemplate(template);
-    const newTreatment: TreatmentItem = {
-      id: `treat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+  const handleOpenBatchModal = (template: BaseTreatmentTemplate) => {
+    setBatchModalTemplate(template);
+    if (activeTargetBoq) {
+      setBatchSelectedBoqIds([activeTargetBoq.id]);
+    } else {
+      setBatchSelectedBoqIds([]);
+    }
+    setBatchSearchQuery('');
+  };
+
+  const handleExecuteBatchMapping = () => {
+    if (!batchModalTemplate || batchSelectedBoqIds.length === 0) return;
+    const active = getEffectiveTemplate(batchModalTemplate);
+    const baseTreatment: TreatmentItem = {
+      id: `treat-${Date.now()}`,
       category: active.category,
       description: active.description,
       qty: 1,
-      unit: active.unit || boqItem?.unit || 'Unit',
+      unit: active.unit || 'Unit',
       outputPerDay: active.defaultOutputPerDay,
       crewDailyRate: active.crewDailyRate,
       equipmentDailyRate: active.equipmentDailyRate,
@@ -768,7 +816,50 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       consumableList: active.consumableList ? active.consumableList.map(c => ({ ...c })) : []
     };
 
-    onAddTreatment(boqItem.id, newTreatment, active.defaultOutputPerDay);
+    if (onBatchAddTreatment) {
+      onBatchAddTreatment(batchSelectedBoqIds, baseTreatment, active.defaultOutputPerDay);
+    } else {
+      batchSelectedBoqIds.forEach(id => {
+        onAddTreatment(id, {
+          ...baseTreatment,
+          id: `treat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+        }, active.defaultOutputPerDay);
+      });
+    }
+
+    setAddedItemIds(prev => ({ ...prev, [batchModalTemplate.id]: true }));
+    setTimeout(() => {
+      setAddedItemIds(prev => ({ ...prev, [batchModalTemplate.id]: false }));
+    }, 1500);
+
+    setBatchModalTemplate(null);
+    setBatchSelectedBoqIds([]);
+  };
+
+  const handleSelectTemplate = (template: BaseTreatmentTemplate) => {
+    if (!activeTargetBoq) {
+      handleOpenBatchModal(template);
+      return;
+    }
+    const active = getEffectiveTemplate(template);
+    const newTreatment: TreatmentItem = {
+      id: `treat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      category: active.category,
+      description: active.description,
+      qty: 1,
+      unit: active.unit || activeTargetBoq.unit || 'Unit',
+      outputPerDay: active.defaultOutputPerDay,
+      crewDailyRate: active.crewDailyRate,
+      equipmentDailyRate: active.equipmentDailyRate,
+      materialUnitRate: active.materialUnitRate || 0,
+      consumableUnitRate: active.consumableUnitRate,
+      manpowerList: active.manpowerList ? active.manpowerList.map(m => ({ ...m })) : [],
+      equipmentList: active.equipmentList ? active.equipmentList.map(e => ({ ...e })) : [],
+      materialList: active.materialList ? active.materialList.map(m => ({ ...m })) : [],
+      consumableList: active.consumableList ? active.consumableList.map(c => ({ ...c })) : []
+    };
+
+    onAddTreatment(activeTargetBoq.id, newTreatment, active.defaultOutputPerDay);
 
     // Feedback sesaat
     setAddedItemIds(prev => ({ ...prev, [template.id]: true }));
@@ -788,7 +879,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     } else if (type === 'consumable') {
       setCustomUnit('Can');
     } else {
-      setCustomUnit(boqItem?.unit || 'Lot');
+      setCustomUnit(activeTargetBoq?.unit || 'Lot');
     }
   };
 
@@ -905,7 +996,9 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       consumableList: newConsumable
     };
 
-    onAddTreatment(boqItem.id, newTreatment, (customOutput > 0 ? customOutput : 1));
+    if (activeTargetBoq) {
+      onAddTreatment(activeTargetBoq.id, newTreatment, (customOutput > 0 ? customOutput : 1));
+    }
 
     // Save as persistent custom template in catalog
     const newTemplate: BaseTreatmentTemplate = {
@@ -1006,17 +1099,84 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Info BoQ Target */}
-          <div style={{ background: '#1e293b', padding: '10px 14px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px' }}>
-            <span style={{ background: '#f59e0b', color: '#0f172a', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-              {boqItem.itemNo}
-            </span>
-            <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#f8fafc' }}>
-              {boqItem.description}
+          {/* Target Mapping BoQ Selector & Mode Bar */}
+          <div style={{ 
+            background: activeTargetBoq ? '#1e293b' : '#0f172a', 
+            padding: '10px 14px', 
+            borderRadius: '8px', 
+            border: activeTargetBoq ? '1px solid #334155' : '1px solid #f59e0b', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px', 
+            fontSize: '12px' 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ 
+                  background: activeTargetBoq ? '#f59e0b' : '#3b82f6', 
+                  color: activeTargetBoq ? '#0f172a' : '#ffffff', 
+                  padding: '2px 8px', 
+                  borderRadius: '4px', 
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {activeTargetBoq ? `🎯 TARGET BOQ: ${activeTargetBoq.itemNo}` : '📦 MODE SETUP MASTER KATALOG'}
+                </span>
+                <span style={{ color: '#94a3b8', fontSize: '11px' }}>
+                  {activeTargetBoq 
+                    ? 'Target aktif pemetaan treatment' 
+                    : 'Katalog master preset standar (dapat dipetakan ke item BoQ)'}
+                </span>
+              </div>
+
+              {allBoqItems.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <label style={{ color: '#cbd5e1', fontSize: '11px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                    Mapping Target:
+                  </label>
+                  <select
+                    value={selectedBoqId}
+                    onChange={(e) => setSelectedBoqId(e.target.value)}
+                    style={{
+                      background: '#0f172a',
+                      color: selectedBoqId ? '#fbbf24' : '#94a3b8',
+                      border: '1px solid #475569',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      maxWidth: '300px',
+                      fontWeight: selectedBoqId ? 'bold' : 'normal',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">-- Setup Master Saja (Bebas / Tanpa BoQ) --</option>
+                    {allBoqItems.filter(b => !b.isCategory).map(b => (
+                      <option key={b.id} value={b.id}>
+                        [{b.itemNo}] {b.description.substring(0, 40)}{b.description.length > 40 ? '...' : ''} ({b.qty} {b.unit})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
-            <div style={{ color: '#94a3b8', fontWeight: '600', whiteSpace: 'nowrap' }}>
-              Vol: {boqItem.qty.toLocaleString('id-ID')} {boqItem.unit}
-            </div>
+
+            {activeTargetBoq ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', background: 'rgba(0,0,0,0.25)', padding: '6px 10px', borderRadius: '6px' }}>
+                <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#f8fafc', fontWeight: '500' }}>
+                  <strong>Item {activeTargetBoq.itemNo}:</strong> {activeTargetBoq.description}
+                </div>
+                <div style={{ color: '#fbbf24', fontWeight: 'bold', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                  Vol: {activeTargetBoq.qty.toLocaleString('id-ID')} {activeTargetBoq.unit}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '11px', color: '#94a3b8', background: 'rgba(0,0,0,0.25)', padding: '6px 10px', borderRadius: '6px' }}>
+                💡 <em>Mode Setup Master: Anda sedang mengonfigurasi katalog template dasar. Untuk memasang treatment ke baris item BoQ, pilih item pada dropdown <strong>Mapping Target</strong> atau gunakan tombol <strong>Map ke Banyak Item</strong> pada kartu treatment.</em>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1848,12 +2008,12 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                 const isCustomTemplate = !BASE_TREATMENT_CATALOG.some(b => b.id === template.id);
                 const catColor = getCategoryColor(active.category);
                 const dailySpreadRate = (active.crewDailyRate || 0) + (active.equipmentDailyRate || 0) + (active.materialUnitRate || 0) + (active.consumableUnitRate || 0);
-                const targetOutput = (boqItem?.outputPerDay && boqItem.outputPerDay > 0)
-                  ? boqItem.outputPerDay
+                const targetOutput = (activeTargetBoq?.outputPerDay && activeTargetBoq.outputPerDay > 0)
+                  ? activeTargetBoq.outputPerDay
                   : (active.defaultOutputPerDay > 0 ? active.defaultOutputPerDay : 1);
                 const estUnitRate = targetOutput > 0 ? (dailySpreadRate / targetOutput) : 0;
-                const estTotal = estUnitRate * (boqItem?.qty || 1);
-                const estDuration = (boqItem?.qty && boqItem.qty > 0 && targetOutput > 0) ? (boqItem.qty / targetOutput) : 0;
+                const estTotal = estUnitRate * (activeTargetBoq?.qty || 1);
+                const estDuration = (activeTargetBoq?.qty && activeTargetBoq.qty > 0 && targetOutput > 0) ? (activeTargetBoq.qty / targetOutput) : 0;
                 const isAdded = !!addedItemIds[template.id];
 
                 return (
@@ -2001,45 +2161,82 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                         <div>
                           Daily Spread: <strong style={{ color: '#0f172a', fontFamily: 'monospace', fontSize: '12px' }}>Rp {Math.round(dailySpreadRate).toLocaleString('id-ID')}/Hari</strong>
                         </div>
-                        {boqItem && (
+                        {activeTargetBoq ? (
                           <div style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: '10px' }}>
-                            Estimasi Unit: <strong style={{ color: '#2563eb', fontFamily: 'monospace' }}>Rp {Math.round(estUnitRate).toLocaleString('id-ID')} / {boqItem.unit}</strong>
+                            Estimasi Unit: <strong style={{ color: '#2563eb', fontFamily: 'monospace' }}>Rp {Math.round(estUnitRate).toLocaleString('id-ID')} / {activeTargetBoq.unit}</strong>
                             <span style={{ color: '#64748b', marginLeft: '6px' }}>(Total: Rp {Math.round(estTotal).toLocaleString('id-ID')}, {estDuration.toFixed(1)} hr)</span>
+                          </div>
+                        ) : (
+                          <div style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: '10px', color: '#64748b' }}>
+                            Default Output: <strong style={{ color: '#0f172a' }}>{active.defaultOutputPerDay} {active.unit || 'Unit'}/Hari</strong>
                           </div>
                         )}
                       </div>
 
-                      {/* Tombol Panggil */}
-                      <button
-                        onClick={() => handleSelectTemplate(template)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          background: isAdded ? '#059669' : '#0f172a',
-                          color: isAdded ? '#ffffff' : '#fbbf24',
-                          fontWeight: 'bold',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                        }}
-                      >
-                        {isAdded ? (
-                          <>
-                            <Check size={14} />
-                            Ditambahkan!
-                          </>
-                        ) : (
-                          <>
-                            <Plus size={14} />
-                            Panggil Treatment
-                          </>
+                      {/* Tombol Panggil & Batch Mapping */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {allBoqItems.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenBatchModal(template)}
+                            title="Petakan treatment ini ke banyak baris BoQ sekaligus"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '6px 11px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              background: '#f8fafc',
+                              color: '#1e3a8a',
+                              fontWeight: '600',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <Layers size={13} style={{ color: '#2563eb' }} />
+                            Map ke Banyak Item...
+                          </button>
                         )}
-                      </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTemplate(template)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: isAdded ? '#059669' : '#0f172a',
+                            color: isAdded ? '#ffffff' : '#fbbf24',
+                            fontWeight: 'bold',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                          }}
+                        >
+                          {isAdded ? (
+                            <>
+                              <Check size={14} />
+                              Ditambahkan!
+                            </>
+                          ) : activeTargetBoq ? (
+                            <>
+                              <Plus size={14} />
+                              Panggil ke Item {activeTargetBoq.itemNo}
+                            </>
+                          ) : (
+                            <>
+                              <Plus size={14} />
+                              Pasang ke BoQ...
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -2051,7 +2248,11 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
         {/* 4. Footer Drawer */}
         <div style={{ padding: '14px 22px', borderTop: '1px solid #e2e8f0', background: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: '12px', color: '#64748b' }}>
-            Saat ini terpasang: <strong style={{ color: '#0f172a' }}>{boqItem.treatments.length} Treatment</strong> pada item ini
+            {activeTargetBoq ? (
+              <>Saat ini terpasang: <strong style={{ color: '#0f172a' }}>{activeTargetBoq.treatments.length} Treatment</strong> pada item {activeTargetBoq.itemNo}</>
+            ) : (
+              <>Total Template Tersedia: <strong style={{ color: '#0f172a' }}>{effectiveCatalog.length} Template</strong> di Katalog Master</>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -2078,9 +2279,10 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
           key={editingTemplateForModal.id}
           isOpen={isResourceModalOpen}
           treatment={editingTemplateForModal}
-          boqQty={boqItem.qty}
-          boqUnit={boqItem.unit}
-          boqOutputPerDay={boqItem.outputPerDay || editingTemplateForModal.outputPerDay || 1}
+          boqQty={activeTargetBoq?.qty || 1}
+          boqUnit={activeTargetBoq?.unit || editingTemplateForModal.unit || 'Unit'}
+          boqOutputPerDay={activeTargetBoq?.outputPerDay || editingTemplateForModal.outputPerDay || 1}
+          allBoqItems={allBoqItems}
           onClose={() => {
             setIsResourceModalOpen(false);
             setEditingTemplateForModal(null);
@@ -2100,6 +2302,238 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
           onSelectMaterial={handleSelectCustomLookupMaterial}
           onSelectConsumable={handleSelectCustomLookupConsumable}
         />
+      )}
+
+      {/* 9. MODAL BATCH MAPPING TREATMENT KE BANYAK ITEM BOQ */}
+      {batchModalTemplate && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 100002,
+          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+            border: '1px solid #cbd5e1',
+            overflow: 'hidden',
+            textAlign: 'left'
+          }}>
+            {/* Header Modal Batch Mapping */}
+            <div style={{ padding: '16px 20px', background: '#0f172a', color: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: '#fbbf24' }}>
+                  <Layers size={18} />
+                  Mapping Treatment ke Item BoQ
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#cbd5e1' }}>
+                  Template: <strong>{batchModalTemplate.description}</strong> ({batchModalTemplate.category})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBatchModalTemplate(null)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', display: 'flex' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Filter & Pilih Semua */}
+            <div style={{ padding: '12px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input
+                  type="text"
+                  placeholder="Cari kode (misal 1.1) atau nama item BoQ..."
+                  value={batchSearchQuery}
+                  onChange={(e) => setBatchSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px 6px 30px',
+                    fontSize: '12px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allEligibleIds = allBoqItems.filter(b => !b.isCategory).map(b => b.id);
+                    setBatchSelectedBoqIds(allEligibleIds);
+                  }}
+                  style={{
+                    padding: '5px 10px',
+                    background: '#e0f2fe',
+                    color: '#0369a1',
+                    border: '1px solid #bae6fd',
+                    borderRadius: '5px',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Pilih Semua ({allBoqItems.filter(b => !b.isCategory).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBatchSelectedBoqIds([])}
+                  style={{
+                    padding: '5px 10px',
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '5px',
+                    fontSize: '11px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Batal Semua
+                </button>
+              </div>
+            </div>
+
+            {/* List Item BoQ Checkbox */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '50vh' }}>
+              {allBoqItems.filter(b => !b.isCategory).filter(b => {
+                if (!batchSearchQuery.trim()) return true;
+                const q = batchSearchQuery.toLowerCase();
+                return b.itemNo.toLowerCase().includes(q) || b.description.toLowerCase().includes(q) || (b.rawLineId && b.rawLineId.toLowerCase().includes(q));
+              }).length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                  Tidak ada item BoQ yang cocok dengan pencarian "{batchSearchQuery}"
+                </div>
+              ) : (
+                allBoqItems.filter(b => !b.isCategory).filter(b => {
+                  if (!batchSearchQuery.trim()) return true;
+                  const q = batchSearchQuery.toLowerCase();
+                  return b.itemNo.toLowerCase().includes(q) || b.description.toLowerCase().includes(q) || (b.rawLineId && b.rawLineId.toLowerCase().includes(q));
+                }).map(b => {
+                  const isChecked = batchSelectedBoqIds.includes(b.id);
+                  const existingMatch = b.treatments.some(tr => tr.description.trim().toLowerCase() === batchModalTemplate.description.trim().toLowerCase());
+                  return (
+                    <label
+                      key={b.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: isChecked ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                        backgroundColor: isChecked ? '#eff6ff' : '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setBatchSelectedBoqIds(prev => [...prev, b.id]);
+                          } else {
+                            setBatchSelectedBoqIds(prev => prev.filter(id => id !== b.id));
+                          }
+                        }}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                      />
+                      <span style={{
+                        background: '#0f172a',
+                        color: '#fff',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        fontFamily: 'monospace',
+                        flexShrink: 0
+                      }}>
+                        {b.itemNo}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {b.description}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                          <span>Vol: <strong>{b.qty.toLocaleString('id-ID')} {b.unit}</strong></span>
+                          <span>•</span>
+                          <span>Output: {b.outputPerDay || 1} {b.unit}/hr</span>
+                          {existingMatch && (
+                            <span style={{ color: '#059669', fontWeight: '600', background: '#d1fae5', padding: '1px 6px', borderRadius: '3px', fontSize: '10px' }}>
+                              ✓ Sudah terpasang
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Modal Batch Mapping */}
+            <div style={{ padding: '14px 20px', background: '#ffffff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#475569' }}>
+                Terpilih: <strong style={{ color: '#2563eb', fontSize: '13px' }}>{batchSelectedBoqIds.length}</strong> dari {allBoqItems.filter(b => !b.isCategory).length} Item BoQ
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setBatchModalTemplate(null)}
+                  style={{
+                    padding: '8px 14px',
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={batchSelectedBoqIds.length === 0}
+                  onClick={handleExecuteBatchMapping}
+                  style={{
+                    padding: '8px 18px',
+                    background: batchSelectedBoqIds.length > 0 ? '#2563eb' : '#94a3b8',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: batchSelectedBoqIds.length > 0 ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: batchSelectedBoqIds.length > 0 ? '0 2px 4px rgba(37,99,235,0.25)' : 'none'
+                  }}
+                >
+                  <Check size={15} />
+                  Terapkan ke {batchSelectedBoqIds.length} Item BoQ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
