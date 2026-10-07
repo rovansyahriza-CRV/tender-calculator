@@ -308,7 +308,29 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
         });
         importedItems.forEach(item => {
           const key = `${item.category.toLowerCase()}:::${item.description.trim().toLowerCase()}`;
-          map.set(key, item);
+          const existing = map.get(key);
+          if (existing) {
+            // Jika data lama sudah ada dan import Excel tidak mengisi tarif (>0), pertahankan breakdown lama!
+            const hasImportedRates = item.crewDailyRate > 0 || item.equipmentDailyRate > 0 || (item.materialUnitRate || 0) > 0 || item.consumableUnitRate > 0;
+            map.set(key, {
+              ...existing,
+              category: item.category,
+              description: item.description,
+              unit: item.unit || existing.unit,
+              defaultOutputPerDay: item.defaultOutputPerDay || existing.defaultOutputPerDay,
+              crewDailyRate: hasImportedRates ? item.crewDailyRate : existing.crewDailyRate,
+              equipmentDailyRate: hasImportedRates ? item.equipmentDailyRate : existing.equipmentDailyRate,
+              materialUnitRate: hasImportedRates ? item.materialUnitRate : existing.materialUnitRate,
+              consumableUnitRate: hasImportedRates ? item.consumableUnitRate : existing.consumableUnitRate,
+              manpowerList: item.manpowerList && item.manpowerList.length > 0 ? item.manpowerList : existing.manpowerList,
+              equipmentList: item.equipmentList && item.equipmentList.length > 0 ? item.equipmentList : existing.equipmentList,
+              materialList: item.materialList && item.materialList.length > 0 ? item.materialList : existing.materialList,
+              consumableList: item.consumableList && item.consumableList.length > 0 ? item.consumableList : existing.consumableList,
+              notes: item.notes || existing.notes
+            });
+          } else {
+            map.set(key, item);
+          }
         });
         const merged = Array.from(map.values());
         try {

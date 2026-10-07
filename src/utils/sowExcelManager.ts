@@ -175,7 +175,8 @@ export async function parseSowExcel(file: File): Promise<ParsedSowResult> {
     for (const [key, val] of Object.entries(row)) {
       const k = key.toLowerCase().replace(/[^a-z0-9]/g, '');
       const strVal = String(val ?? '').trim();
-      const numVal = parseFloat(strVal.replace(/[^0-9.-]/g, '')) || 0;
+      const normalizedVal = strVal.replace(',', '.');
+      const numVal = parseFloat(normalizedVal.replace(/[^0-9.-]/g, '')) || 0;
 
       // Matching Kategori
       if (k.includes('kategori') || k.includes('category') || k.includes('grup') || k.includes('bidang')) {
@@ -301,3 +302,4 @@ export async function parseSowExcel(file: File): Promise<ParsedSowResult> {
     warnings
   };
 }
+
