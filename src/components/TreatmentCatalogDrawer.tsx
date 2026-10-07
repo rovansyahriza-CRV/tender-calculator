@@ -24,12 +24,15 @@ import {
   HardHat,
   Package,
   Layers,
-  TrendingUp
+  TrendingUp,
+  FileSpreadsheet
 } from 'lucide-react';
+import { SowImportExportModal } from './SowImportExportModal';
 import {
   fetchCustomTemplatesFromCloud,
   saveCustomTemplateToCloud,
-  deleteCustomTemplateFromCloud
+  deleteCustomTemplateFromCloud,
+  batchSaveCustomTemplatesToCloud
 } from '../utils/supabaseClient';
 
 interface Props {
@@ -270,6 +273,53 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     }
   };
   
+  // Modal Import & Export SOW Excel
+  const [isSowImportExportOpen, setIsSowImportExportOpen] = useState(false);
+
+  const handleImportComplete = (
+    importedItems: BaseTreatmentTemplate[],
+    mode: 'append' | 'replace',
+    newCategories: string[]
+  ) => {
+    // 1. Daftarkan kategori baru jika ada
+    if (newCategories && newCategories.length > 0) {
+      setUserCustomCategories(prev => {
+        const combined = Array.from(new Set([...prev, ...newCategories]));
+        try {
+          localStorage.setItem(CUSTOM_CATEGORIES_STORAGE_KEY, JSON.stringify(combined));
+        } catch (e) {}
+        return combined;
+      });
+    }
+
+    // 2. Simpan SOW berdasarkan mode (replace vs append)
+    if (mode === 'replace') {
+      setSavedCustomTemplates(importedItems);
+      try {
+        localStorage.setItem(CUSTOM_TEMPLATES_STORAGE_KEY, JSON.stringify(importedItems));
+      } catch (e) {}
+      batchSaveCustomTemplatesToCloud(importedItems);
+    } else {
+      setSavedCustomTemplates(prev => {
+        const map = new Map<string, BaseTreatmentTemplate>();
+        prev.forEach(t => {
+          const key = `${t.category.toLowerCase()}:::${t.description.trim().toLowerCase()}`;
+          map.set(key, t);
+        });
+        importedItems.forEach(item => {
+          const key = `${item.category.toLowerCase()}:::${item.description.trim().toLowerCase()}`;
+          map.set(key, item);
+        });
+        const merged = Array.from(map.values());
+        try {
+          localStorage.setItem(CUSTOM_TEMPLATES_STORAGE_KEY, JSON.stringify(merged));
+        } catch (e) {}
+        return merged;
+      });
+      batchSaveCustomTemplatesToCloud(importedItems);
+    }
+  };
+
   // Custom Treatment / SOW Form Toggle & Scope Type
   const [isCustomOpen, setIsCustomOpen] = useState(false);
   const [sowType, setSowType] = useState<'multi' | 'manpower' | 'equipment' | 'material' | 'consumable'>('multi');
@@ -1240,37 +1290,64 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
         {/* 3. Catalog Items List */}
         <div style={{ padding: '16px 22px', overflowY: 'auto', flex: 1, backgroundColor: '#f1f5f9' }}>
           
-          {/* Tombol Buat Custom Treatment */}
+          {/* Tombol Buat Custom Treatment & Import / Export Excel */}
           <div style={{ marginBottom: '14px' }}>
-            <button
-              onClick={() => {
-                const nextOpen = !isCustomOpen;
-                setIsCustomOpen(nextOpen);
-                if (nextOpen && selectedCategory !== 'Semua') {
-                  setCustomCategory(selectedCategory);
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                backgroundColor: isCustomOpen ? '#f8fafc' : '#ffffff',
-                border: '1px dashed #2563eb',
-                borderRadius: '8px',
-                color: '#2563eb',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}
-            >
-              <Sparkles size={16} />
-              {isCustomOpen 
-                ? 'Tutup Formulir Custom Treatment' 
-                : `+ Buat Treatment Kustom Sendiri ${selectedCategory !== 'Semua' ? `(${selectedCategory})` : ''}`}
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => {
+                  const nextOpen = !isCustomOpen;
+                  setIsCustomOpen(nextOpen);
+                  if (nextOpen && selectedCategory !== 'Semua') {
+                    setCustomCategory(selectedCategory);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: '220px',
+                  padding: '10px 14px',
+                  backgroundColor: isCustomOpen ? '#f8fafc' : '#ffffff',
+                  border: '1px dashed #2563eb',
+                  borderRadius: '8px',
+                  color: '#2563eb',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                }}
+              >
+                <Sparkles size={16} />
+                {isCustomOpen 
+                  ? 'Tutup Formulir Custom Treatment' 
+                  : `+ Buat Treatment Kustom ${selectedCategory !== 'Semua' ? `(${selectedCategory})` : ''}`}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsSowImportExportOpen(true)}
+                style={{
+                  padding: '10px 16px',
+                  backgroundColor: '#047857',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}
+                title="Import atau Export Kategori dan SOW via Excel (.xlsx) dengan opsi Tambahkan (Add) atau Ganti Semua (Replace)"
+              >
+                <FileSpreadsheet size={16} />
+                📊 Import / Export Excel (SOW)
+              </button>
+            </div>
 
             {/* Form Custom Treatment */}
             {isCustomOpen && (
@@ -2535,6 +2612,15 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Import & Export SOW Base Treatment via Excel */}
+      <SowImportExportModal
+        isOpen={isSowImportExportOpen}
+        onClose={() => setIsSowImportExportOpen(false)}
+        currentCatalog={effectiveCatalog}
+        existingCategories={allPillCategories}
+        onImportComplete={handleImportComplete}
+      />
     </div>
   );
 };

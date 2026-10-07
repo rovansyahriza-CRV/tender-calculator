@@ -196,6 +196,43 @@ export async function deleteCustomTemplateFromCloud(tplId: string): Promise<bool
   }
 }
 
+export async function batchSaveCustomTemplatesToCloud(templates: BaseTreatmentTemplate[]): Promise<boolean> {
+  if (!templates || templates.length === 0) return true;
+  try {
+    const payloads = templates.map(tpl => ({
+      id: tpl.id,
+      category: tpl.category,
+      description: tpl.description,
+      unit: tpl.unit || 'Lot',
+      default_output_per_day: tpl.defaultOutputPerDay || 1,
+      crew_daily_rate: tpl.crewDailyRate || 0,
+      equipment_daily_rate: tpl.equipmentDailyRate || 0,
+      material_unit_rate: tpl.materialUnitRate || 0,
+      consumable_unit_rate: tpl.consumableUnitRate || 0,
+      notes: tpl.notes || '',
+      manpower_list: tpl.manpowerList || [],
+      equipment_list: tpl.equipmentList || [],
+      material_list: tpl.materialList || [],
+      consumable_list: tpl.consumableList || [],
+      updated_at: new Date().toISOString()
+    }));
+
+    const { error } = await supabase
+      .from('tender_custom_templates')
+      .upsert(payloads, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Gagal batch simpan custom templates ke cloud:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error batch simpan custom templates ke cloud:', err);
+    return false;
+  }
+}
+
+
 // ==========================================
 // 3. USERS CLOUD SYNC
 // ==========================================
