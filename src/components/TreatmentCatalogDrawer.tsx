@@ -179,17 +179,34 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
   }, [projectBoqTemplates]);
 
   // 5. Effective Catalog (Base + Saved Custom + Project Harvested)
+  // Deduplikasi menggunakan normalized key (category:::description) agar tidak menduplikasi data antara BASE dan cloud/storage
   const effectiveCatalog = useMemo(() => {
     const map = new Map<string, BaseTreatmentTemplate>();
-    BASE_TREATMENT_CATALOG.forEach(t => map.set(t.id, t));
-    savedCustomTemplates.forEach(t => map.set(t.id, t));
+
+    // A. Masukkan BASE_TREATMENT_CATALOG
+    BASE_TREATMENT_CATALOG.forEach(t => {
+      const key = `${t.category.trim().toLowerCase()}:::${t.description.trim().toLowerCase()}`;
+      map.set(key, t);
+    });
+
+    // B. Timpa dengan savedCustomTemplates jika ada kustomisasi user
+    savedCustomTemplates.forEach(t => {
+      if (deletedTemplateIds.includes(t.id)) return;
+      const key = `${t.category.trim().toLowerCase()}:::${t.description.trim().toLowerCase()}`;
+      map.set(key, t);
+    });
+
+    // C. Masukkan projectBoqTemplates jika belum ada
     projectBoqTemplates.forEach(t => {
-      if (!map.has(t.id)) {
-        map.set(t.id, t);
+      if (deletedTemplateIds.includes(t.id)) return;
+      const key = `${t.category.trim().toLowerCase()}:::${t.description.trim().toLowerCase()}`;
+      if (!map.has(key)) {
+        map.set(key, t);
       }
     });
+
     return Array.from(map.values());
-  }, [savedCustomTemplates, projectBoqTemplates]);
+  }, [savedCustomTemplates, projectBoqTemplates, deletedTemplateIds]);
 
   // Fetch custom templates dari Supabase Cloud saat Drawer dibuka
   useEffect(() => {
@@ -510,17 +527,48 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
   const [editingTemplateForModal, setEditingTemplateForModal] = useState<TreatmentItem | null>(null);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
 
-  // Filter katalog
-  const filteredCatalog = useMemo(() => {
+  // 1. Seluruh item yang cocok dengan kata kunci pencarian (lintas seluruh kategori)
+  const allSearchMatches = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return effectiveCatalog.filter(item => 
+      item.description.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q) ||
+      (item.notes && item.notes.toLowerCase().includes(q))
+    );
+  }, [effectiveCatalog, searchQuery]);
+
+  // 2. Item yang cocok pada kategori yang sedang dipilih
+  const categoryMatches = useMemo(() => {
     return effectiveCatalog.filter(item => {
       const matchCat = selectedCategory === 'Semua' || item.category.toLowerCase() === selectedCategory.toLowerCase();
+      if (!searchQuery.trim()) return matchCat;
+      const q = searchQuery.toLowerCase().trim();
       const matchQuery = 
-        item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.notes && item.notes.toLowerCase().includes(searchQuery.toLowerCase()));
+        item.description.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q) ||
+        (item.notes && item.notes.toLowerCase().includes(q));
       return matchCat && matchQuery;
     });
   }, [effectiveCatalog, searchQuery, selectedCategory]);
+
+  // 3. Deteksi cerdas: jika di kategori aktif 0 hasil, tetapi ada hasil di kategori lain
+  const isSearchFallingBackToAll = useMemo(() => {
+    return (
+      Boolean(searchQuery.trim()) &&
+      selectedCategory !== 'Semua' &&
+      categoryMatches.length === 0 &&
+      allSearchMatches.length > 0
+    );
+  }, [searchQuery, selectedCategory, categoryMatches, allSearchMatches]);
+
+  // 4. Katalog yang ditampilkan: otomatis tampilkan hasil lintas kategori jika kategori aktif kosong
+  const filteredCatalog = useMemo(() => {
+    if (isSearchFallingBackToAll) {
+      return allSearchMatches;
+    }
+    return categoryMatches;
+  }, [isSearchFallingBackToAll, allSearchMatches, categoryMatches]);
 
   if (!isOpen) return null;
 
@@ -1255,16 +1303,16 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
         {/* 2. Search & Category Filters */}
         <div style={{ padding: '14px 22px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
           {/* Search Bar */}
-          <div style={{ position: 'relative', marginBottom: '10px' }}>
+          <div style={{ position: 'relative', marginBottom: '8px' }}>
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: '#94a3b8' }} />
             <input 
               type="text"
-              placeholder="Cari preset treatment (misal: welding, blasting, AC, foreman...)"
+              placeholder="Cari preset treatment (misal: hydrotest, fit-up, welding, excavator, blasting...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                padding: '8px 12px 8px 36px',
+                padding: '8px 32px 8px 36px',
                 border: '1px solid #cbd5e1',
                 borderRadius: '8px',
                 fontSize: '13px',
@@ -1273,14 +1321,88 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                 background: '#ffffff'
               }}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '8px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  borderRadius: '4px'
+                }}
+                title="Hapus kata kunci pencarian"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
+
+          {/* Active Category Filter Indicator */}
+          {selectedCategory !== 'Semua' && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              marginBottom: '8px',
+              fontSize: '11px',
+              color: '#1e40af'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>Filter Kategori Aktif:</span>
+                <strong style={{ color: '#0f172a' }}>{selectedCategory}</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('Semua')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  fontWeight: 'bold',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  textDecoration: 'underline'
+                }}
+              >
+                Tampilkan Semua Kategori ➔
+              </button>
+            </div>
+          )}
 
           {/* Category Pills */}
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
             {allPillCategories.map(cat => {
+              const q = searchQuery.toLowerCase().trim();
               const count = cat === 'Semua' 
-                ? effectiveCatalog.length 
-                : effectiveCatalog.filter(i => i.category.toLowerCase() === cat.toLowerCase()).length;
+                ? (q ? allSearchMatches.length : effectiveCatalog.length)
+                : effectiveCatalog.filter(i => {
+                    const matchCat = i.category.toLowerCase() === cat.toLowerCase();
+                    if (!q) return matchCat;
+                    return matchCat && (
+                      i.description.toLowerCase().includes(q) ||
+                      i.category.toLowerCase().includes(q) ||
+                      (i.notes && i.notes.toLowerCase().includes(q))
+                    );
+                  }).length;
+
+              // Jika sedang mencari dan kategori ini memiliki 0 hasil (bukan 'Semua' dan bukan yang sedang diklik), sembunyikan agar rapi
+              if (q && count === 0 && cat !== selectedCategory && cat !== 'Semua') {
+                return null;
+              }
+
               const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
               return (
                 <button
@@ -2047,6 +2169,46 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
             )}
           </div>
 
+          {/* Smart Banner: Jika pencarian otomatis dialihkan ke semua kategori */}
+          {isSearchFallingBackToAll && (
+            <div style={{
+              backgroundColor: '#eff6ff',
+              border: '1px solid #93c5fd',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e40af', fontSize: '12px' }}>
+                <Info size={18} />
+                <span>
+                  Tidak ada SOW "<strong>{searchQuery}</strong>" di kategori <strong>{selectedCategory}</strong>.<br />
+                  Menampilkan <strong>{allSearchMatches.length} hasil</strong> yang ditemukan di kategori lain.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('Semua')}
+                style={{
+                  backgroundColor: '#1d4ed8',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Pindah ke Filter "Semua"
+              </button>
+            </div>
+          )}
+
           {/* List Card Preset */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {filteredCatalog.length === 0 ? (
@@ -2069,9 +2231,30 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
                 </div>
                 <div style={{ fontSize: '12px', color: '#64748b', maxWidth: '420px', lineHeight: 1.5 }}>
                   {searchQuery 
-                    ? 'Coba gunakan kata kunci pencarian lain atau buat template treatment baru.'
-                    : `Anda dapat membuat treatment baru untuk kategori "${selectedCategory}" dengan mengklik tombol "+ Buat Treatment Kustom Sendiri" di atas. Template yang dibuat akan otomatis tersimpan di sini!`}
+                    ? (selectedCategory !== 'Semua' && allSearchMatches.length > 0 
+                        ? `Tidak ada di kategori "${selectedCategory}", namun ditemukan ${allSearchMatches.length} template di kategori lain.` 
+                        : 'Coba gunakan kata kunci pencarian lain atau buat template treatment baru.')
+                    : `Anda dapat membuat treatment baru untuk kategori "${selectedCategory}" dengan mengklik tombol "+ Buat Treatment Kustom" di atas. Template yang dibuat akan otomatis tersimpan di sini!`}
                 </div>
+                {searchQuery && selectedCategory !== 'Semua' && allSearchMatches.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory('Semua')}
+                    style={{
+                      backgroundColor: '#2563eb',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      marginTop: '4px'
+                    }}
+                  >
+                    🔍 Buka Semua Kategori ({allSearchMatches.length} Hasil Ditemukan)
+                  </button>
+                )}
                 {!isCustomOpen && (
                   <button
                     onClick={() => {
