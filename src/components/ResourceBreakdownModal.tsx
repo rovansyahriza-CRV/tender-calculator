@@ -548,7 +548,8 @@ export const ResourceBreakdownModal: React.FC<Props> = ({
   const handleSave = () => {
     const updated: TreatmentItem = {
       ...treatment,
-      qty: 1, // Treatment represents daily package
+      qty: (treatment?.qty !== undefined && treatment.qty > 0) ? treatment.qty : (effectiveOutput > 0 ? effectiveOutput : 1),
+      unit: treatment?.unit || boqUnit || 'Unit',
       outputPerDay: effectiveOutput,
       crewDailyRate: totalCrewDailyRate,
       equipmentDailyRate: totalEquipmentDailyRate,

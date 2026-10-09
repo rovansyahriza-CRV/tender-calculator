@@ -578,13 +578,14 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
 
   const handleOpenBreakdownModal = (template: BaseTreatmentTemplate) => {
     const active = getEffectiveTemplate(template);
+    const defaultProd = (active.defaultOutputPerDay && active.defaultOutputPerDay > 0) ? active.defaultOutputPerDay : 1;
     const tempItem: TreatmentItem = {
       id: active.id,
       category: active.category,
       description: active.description,
-      qty: 1,
+      qty: defaultProd,
       unit: active.unit || activeTargetBoq?.unit || 'Unit',
-      outputPerDay: active.defaultOutputPerDay,
+      outputPerDay: defaultProd,
       crewDailyRate: active.crewDailyRate,
       equipmentDailyRate: active.equipmentDailyRate,
       materialUnitRate: active.materialUnitRate || 0,
@@ -919,13 +920,14 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
   const handleExecuteBatchMapping = () => {
     if (!batchModalTemplate || batchSelectedBoqIds.length === 0) return;
     const active = getEffectiveTemplate(batchModalTemplate);
+    const defaultProd = (active.defaultOutputPerDay && active.defaultOutputPerDay > 0) ? active.defaultOutputPerDay : 1;
     const baseTreatment: TreatmentItem = {
       id: `treat-${Date.now()}`,
       category: active.category,
       description: active.description,
-      qty: 1,
+      qty: defaultProd,
       unit: active.unit || 'Unit',
-      outputPerDay: active.defaultOutputPerDay,
+      outputPerDay: defaultProd,
       crewDailyRate: active.crewDailyRate,
       equipmentDailyRate: active.equipmentDailyRate,
       materialUnitRate: active.materialUnitRate || 0,
@@ -937,13 +939,13 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
     };
 
     if (onBatchAddTreatment) {
-      onBatchAddTreatment(batchSelectedBoqIds, baseTreatment, active.defaultOutputPerDay);
+      onBatchAddTreatment(batchSelectedBoqIds, baseTreatment, defaultProd);
     } else {
       batchSelectedBoqIds.forEach(id => {
         onAddTreatment(id, {
           ...baseTreatment,
           id: `treat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
-        }, active.defaultOutputPerDay);
+        }, defaultProd);
       });
     }
 
@@ -962,13 +964,14 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       return;
     }
     const active = getEffectiveTemplate(template);
+    const defaultProd = (active.defaultOutputPerDay && active.defaultOutputPerDay > 0) ? active.defaultOutputPerDay : 1;
     const newTreatment: TreatmentItem = {
       id: `treat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       category: active.category,
       description: active.description,
-      qty: 1,
+      qty: defaultProd,
       unit: active.unit || activeTargetBoq.unit || 'Unit',
-      outputPerDay: active.defaultOutputPerDay,
+      outputPerDay: defaultProd,
       crewDailyRate: active.crewDailyRate,
       equipmentDailyRate: active.equipmentDailyRate,
       materialUnitRate: active.materialUnitRate || 0,
@@ -979,7 +982,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       consumableList: active.consumableList ? active.consumableList.map(c => ({ ...c })) : []
     };
 
-    onAddTreatment(activeTargetBoq.id, newTreatment, active.defaultOutputPerDay);
+    onAddTreatment(activeTargetBoq.id, newTreatment, defaultProd);
 
     // Feedback sesaat
     setAddedItemIds(prev => ({ ...prev, [template.id]: true }));
@@ -1099,7 +1102,7 @@ export const TreatmentCatalogDrawer: React.FC<Props> = ({
       description: customDesc.trim(),
       qty: (sowType === 'manpower' || sowType === 'equipment') 
         ? durationDays 
-        : (customQty > 0 ? customQty : 1),
+        : (customOutput > 0 ? customOutput : (customQty > 0 ? customQty : 1)),
       unit: (sowType === 'manpower' || sowType === 'equipment') 
         ? (customUnit.trim() || 'Hari') 
         : (customUnit.trim() || 'Unit'),
