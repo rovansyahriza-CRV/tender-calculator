@@ -606,6 +606,34 @@ export default function App() {
     }));
   };
 
+  const handleUpdateTreatmentOutputPerDay = (boqId: string, treatmentId: string, newOutput: number) => {
+    setTenders(prev => prev.map(t => {
+      if (t.id === activeTenderId) {
+        return {
+          ...t,
+          boqList: t.boqList.map(b => {
+            if (b.id === boqId) {
+              return {
+                ...b,
+                treatments: b.treatments.map(tr => {
+                  if (tr.id === treatmentId) {
+                    return {
+                      ...tr,
+                      outputPerDay: Math.max(0.01, newOutput)
+                    };
+                  }
+                  return tr;
+                })
+              };
+            }
+            return b;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
   const handleUpdateBoqQty = (boqId: string, newQty: number) => {
     setTenders(prev => prev.map(t => {
       if (t.id === activeTenderId) {
@@ -2164,16 +2192,18 @@ export default function App() {
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                             <thead>
                               <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', color: '#334155' }}>
-                                <th style={{ padding: '8px 10px', textAlign: 'left' }}>Kategori & Deskripsi Treatment</th>
-                                <th style={{ padding: '8px 8px', textAlign: 'center', width: '85px' }}>Qty</th>
-                                <th style={{ padding: '8px 8px', textAlign: 'center', width: '75px' }}>Unit</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '95px' }}>Kru (Rp/Hari)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '95px' }}>Alat (Rp/Hari)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '95px' }}>Material (Rp/Hari)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '95px' }}>Consumables (Rp/Hari)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '110px' }}>Daily Spread (Rp/Hari)</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '110px' }}>Biaya / Satuan</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '120px' }}>Total Biaya (Rp)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left' }}>Kategori & Detail SOW</th>
+                                <th style={{ padding: '8px 8px', textAlign: 'center', width: '80px' }}>Qty</th>
+                                <th style={{ padding: '8px 8px', textAlign: 'center', width: '70px' }}>Unit</th>
+                                <th style={{ padding: '8px 8px', textAlign: 'center', width: '75px' }} title="Target Produksi per Hari (Prod/ day)">Prod/ day</th>
+                                <th style={{ padding: '8px 8px', textAlign: 'center', width: '75px' }} title="Estimasi Durasi Hari = Qty ÷ Prod/ day">Dur (days)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Kru (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Alat (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Material (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '90px' }}>Consumables (Rp/Hari)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '105px' }} title="Daily Spread / Biaya Harian Gabungan (Unit/ day)">Daily Spread (Unit/day)</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '105px' }} title="Tarif Satuan SOW = Daily Spread ÷ Prod/ day">Biaya / Satuan</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'right', width: '120px' }} title="Sub Total Biaya SOW = Dur (days) × Unit/ day">Sub Total (Rp)</th>
                                 <th style={{ padding: '8px 10px', textAlign: 'center', width: '55px' }}>Aksi</th>
                               </tr>
                             </thead>
@@ -2216,9 +2246,6 @@ export default function App() {
                                           <Sliders size={11} />
                                           <span>Turunan Resources: {(tr.manpowerList?.length || 0)} Kru • {(tr.equipmentList?.length || 0)} Alat • {(tr.materialList?.length || 0)} Mat • {(tr.consumableList?.length || 0)} Cons</span>
                                         </button>
-                                        <span style={{ fontSize: '10px', color: '#64748b' }}>
-                                          ⚡ Target Prod: <strong>{outputRate}</strong> {displayUnit}/hr (⏱️ {trDuration.toFixed(2)} hr)
-                                        </span>
                                       </div>
                                     </td>
 
@@ -2235,10 +2262,10 @@ export default function App() {
                                           const val = parseFloat(e.target.value);
                                           handleUpdateTreatmentQty(boq.id, tr.id, isNaN(val) ? 0 : val);
                                         }}
-                                        title={`Qty SOW (Default: ${outputRate} ${displayUnit} mengikuti target produksi per hari). Durasi: ${(effectiveQty / outputRate).toFixed(2)} hari kerja`}
+                                        title={`Qty SOW. Durasi: ${trDuration.toFixed(2)} hari kerja`}
                                         style={{
-                                          width: '70px',
-                                          padding: '3px 6px',
+                                          width: '65px',
+                                          padding: '3px 5px',
                                           fontSize: '11px',
                                           textAlign: 'right',
                                           border: '1px solid #cbd5e1',
@@ -2261,8 +2288,8 @@ export default function App() {
                                         onChange={(e) => handleUpdateTreatmentUnit(boq.id, tr.id, e.target.value)}
                                         title="Satuan unit pekerjaan SOW"
                                         style={{
-                                          width: '58px',
-                                          padding: '3px 6px',
+                                          width: '55px',
+                                          padding: '3px 5px',
                                           fontSize: '11px',
                                           textAlign: 'center',
                                           border: '1px solid #cbd5e1',
@@ -2272,6 +2299,56 @@ export default function App() {
                                           backgroundColor: isReadOnly ? '#f8fafc' : '#ffffff'
                                         }}
                                       />
+                                    </td>
+
+                                    {/* Kolom Prod/ day (Target Produksi per Hari - Editable!) */}
+                                    <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                                      <input
+                                        type="number"
+                                        min="0.01"
+                                        step="any"
+                                        value={tr.outputPerDay !== undefined && tr.outputPerDay > 0 ? tr.outputPerDay : 1}
+                                        disabled={isReadOnly}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={(e) => {
+                                          const val = parseFloat(e.target.value);
+                                          handleUpdateTreatmentOutputPerDay(boq.id, tr.id, isNaN(val) ? 1 : val);
+                                        }}
+                                        title={`Target Output / Produksi Harian (Prod/ day): ${outputRate} ${displayUnit}/hari`}
+                                        style={{
+                                          width: '60px',
+                                          padding: '3px 5px',
+                                          fontSize: '11px',
+                                          textAlign: 'right',
+                                          border: '1px solid #f59e0b',
+                                          borderRadius: '4px',
+                                          fontWeight: 'bold',
+                                          color: '#b45309',
+                                          backgroundColor: isReadOnly ? '#f8fafc' : '#ffffff',
+                                          boxShadow: 'inset 0 1px 2px rgba(245,158,11,0.08)'
+                                        }}
+                                      />
+                                    </td>
+
+                                    {/* Kolom Dur (days) - Durasi Hari Otomatis (Qty / Prod/day) */}
+                                    <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                                      <span 
+                                        title={`Durasi pengerjaan: ${effectiveQty} ${displayUnit} ÷ ${outputRate} ${displayUnit}/hari = ${trDuration.toFixed(2)} hari kerja`}
+                                        style={{ 
+                                          background: '#e0f2fe', 
+                                          color: '#0369a1', 
+                                          border: '1px solid #bae6fd', 
+                                          padding: '3px 6px', 
+                                          borderRadius: '4px', 
+                                          fontSize: '11px', 
+                                          fontWeight: 'bold',
+                                          fontFamily: 'monospace',
+                                          display: 'inline-block',
+                                          whiteSpace: 'nowrap'
+                                        }}
+                                      >
+                                        {trDuration.toFixed(2)}
+                                      </span>
                                     </td>
 
                                     <td style={{ padding: '8px 10px', textAlign: 'right', fontFamily: 'monospace' }}>
